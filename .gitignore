@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# PyInstaller / Distribution
+build/
+dist/
+
+# Application configuration & logs
+config.json
+*.log
+logs/
+
+# Large AI Model checkpoints & caches (downloaded at runtime)
+models/nllb-*/
+models/whisper/
+models/hub/
+models/cache/
+*.bin
+*.safetensors
+
+# OS & Editor specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Scratch and test audio
+scratch/
+.tempmediaStorage/
+*.wav
+inference_results.json
+audio_results.json
+worker_audio_results.json

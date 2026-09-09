@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lumacaption"
+version = "1.0.0"
+description = "Real-time multilingual voice translation overlay for OBS"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "ctranslate2",
+    "faster-whisper",
+    "onnxruntime",
+    "sounddevice",
+    "websockets>=13.0",
+    "numpy",
+]
+
+[project.scripts]
+lumacaption = "lumacaption.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

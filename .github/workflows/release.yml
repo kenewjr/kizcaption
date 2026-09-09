@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag version name (e.g. v1.0.0)'
+        required: false
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release LumaCaption Standalone .EXE
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies & PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Build Standalone .EXE
+        run: |
+          pyinstaller LumaCaption.spec --noconfirm
+
+      - name: Copy user template assets to dist
+        shell: powershell
+        run: |
+          Copy-Item -Recurse -Force output dist/LumaCaption/
+          Copy-Item -Recurse -Force models dist/LumaCaption/
+          Copy-Item -Force config.example.json dist/LumaCaption/
+
+      - name: Archive Release Package
+        shell: powershell
+        run: |
+          Compress-Archive -Path dist/LumaCaption/* -DestinationPath LumaCaption-windows-x64.zip -Force
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: LumaCaption-windows-x64.zip
+          name: "LumaCaption ${{ github.ref_name || inputs.tag_name }}"
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

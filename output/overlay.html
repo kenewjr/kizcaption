@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>LumaCaption Browser Source</title>
+  <meta name="description" content="Transparent local live caption overlay for OBS Browser Source.">
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: var(--caption-font, "Segoe UI"), system-ui, sans-serif;
+      --caption-size: 48px;
+      --caption-color: #ffffff;
+      --outline-color: #806cff;
+      --accent: 267 92% 72%;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+    body {
+      display: grid; place-items: end center;
+      padding: clamp(12px, 3vh, 36px) clamp(16px, 3vw, 48px);
+    }
+    main { display: grid; justify-items: center; width: 100%; }
+
+    #language-tag {
+      display: none;
+      z-index: 1; margin: 0 0 -6px; padding: 4px 10px; border: 1px solid hsl(var(--accent) / .45);
+      border-radius: 999px; color: hsl(var(--accent)); background: rgba(11, 13, 25, .9);
+      font-size: clamp(11px, 1.1vw, 14px); font-weight: 750; letter-spacing: .08em;
+      text-transform: uppercase; opacity: 0; transform: translateY(6px); transition: .2s ease;
+    }
+    .show-tag #language-tag { display: inline-block; }
+
+    #subtitles {
+      max-width: min(1600px, 100%); width: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: clamp(4px, 1vh, 10px);
+      font-size: clamp(14px, 3.8vw, var(--caption-size));
+      opacity: 0; transform: translateY(14px) scale(.985);
+      transition: opacity .2s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+    }
+    main.visible #subtitles, main.visible #language-tag { opacity: 1; transform: none; }
+
+    .subtitle-line {
+      display: block; width: 100%;
+      text-align: center; overflow-wrap: anywhere; text-wrap: balance;
+      font-family: var(--caption-font, "Segoe UI"), system-ui, sans-serif;
+      font-size: inherit;
+      font-weight: 800; line-height: 1.25;
+      color: var(--caption-color, #ffffff);
+    }
+
+    /* THEME 1: VTuber / Anime Streamer Style (Transparent, Heavy Stroke & Glowing Outline) */
+    body.theme-vtuber .subtitle-line {
+      -webkit-text-stroke: max(2.5px, calc(var(--caption-size) * 0.055)) var(--line-outline, var(--outline-color, #806cff));
+      text-shadow:
+        0 0 14px var(--line-outline, var(--outline-color, #806cff)),
+        0 0 28px var(--line-outline, var(--outline-color, #806cff)),
+        -2px -2px 0 var(--line-outline, var(--outline-color, #806cff)),
+         2px -2px 0 var(--line-outline, var(--outline-color, #806cff)),
+        -2px  2px 0 var(--line-outline, var(--outline-color, #806cff)),
+         2px  2px 0 var(--line-outline, var(--outline-color, #806cff)),
+         0 3px 8px rgba(0, 0, 0, 0.95);
+      paint-order: stroke fill;
+    }
+
+    /* Coordinated pastel accent strokes for multi-line VTuber subtitles */
+    body.theme-vtuber.multi-line .subtitle-line:nth-child(1) {
+      --line-outline: var(--outline-color, #806cff);
+    }
+    body.theme-vtuber.multi-line .subtitle-line:nth-child(2) {
+      --line-outline: var(--outline-color, #a855f7);
+    }
+    body.theme-vtuber.multi-line .subtitle-line:nth-child(3) {
+      --line-outline: #ec4899;
+    }
+
+    /* THEME 2: Card / Dark Box Style */
+    body.theme-card #subtitles {
+      padding: .75em 1.2em; border: 1px solid rgba(255,255,255,.18);
+      border-radius: clamp(14px, 2vw, 24px);
+      background: linear-gradient(135deg, rgba(7,10,22,.94), rgba(23,20,43,.88));
+      box-shadow: 0 22px 70px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.12);
+      backdrop-filter: blur(18px);
+    }
+    body.theme-card .subtitle-line {
+      text-shadow: 0 2px 12px rgba(0,0,0,.8);
+    }
+
+    #connection {
+      position: fixed; top: 16px; right: 16px; padding: 7px 11px; border: 1px solid rgba(255,255,255,.1);
+      border-radius: 999px; color: rgba(255,255,255,.8); background: rgba(8,11,23,.7);
+      font: 650 13px/1 "Segoe UI", sans-serif; opacity: 0; transform: translateY(-5px);
+      transition: .2s ease;
+    }
+    #connection.visible { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) { #subtitles, #language-tag, #connection { transition: none; } }
+  </style>
+</head>
+<body class="theme-vtuber">
+  <main id="stage" aria-live="polite" aria-atomic="true">
+    <div id="language-tag"></div>
+    <div id="subtitles"></div>
+  </main>
+  <aside id="connection" role="status">Menghubungkan ulang…</aside>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const lang = params.get("lang") || "all";
+    const isAll = lang.toLowerCase() === "all" || lang === "*";
+    const preview = params.get("preview") === "1";
+
+    const allowedFonts = new Set([
+      "Segoe UI", "Arial", "Verdana", "Tahoma", "Trebuchet MS", "Georgia", "Consolas"
+    ]);
+    const requestedFont = params.get("font") || "Segoe UI";
+    const requestedSize = Number.parseInt(params.get("size") || "48", 10);
+    const requestedColor = params.get("color") || "#ffffff";
+    const requestedOutline = params.get("outline") || "#806cff";
+    const requestedTheme = (params.get("theme") || "vtuber").toLowerCase();
+
+    const font = allowedFonts.has(requestedFont) ? requestedFont : "Segoe UI";
+    const size = Number.isFinite(requestedSize) ? Math.min(96, Math.max(16, requestedSize)) : 48;
+    const theme = requestedTheme === "card" ? "theme-card" : "theme-vtuber";
+
+    document.body.className = `${theme} ${isAll ? "multi-line" : ""}`;
+    document.documentElement.style.setProperty("--caption-font", `"${font}"`);
+    document.documentElement.style.setProperty("--caption-size", `${size}px`);
+    document.documentElement.style.setProperty("--caption-color", requestedColor);
+    if (requestedOutline !== "none") {
+      document.documentElement.style.setProperty("--outline-color", requestedOutline);
+    } else {
+      document.documentElement.style.setProperty("--outline-color", "transparent");
+    }
+
+    const stage = document.getElementById("stage");
+    const subtitles = document.getElementById("subtitles");
+    const caption = subtitles;
+    const languageTag = document.getElementById("language-tag");
+    const connection = document.getElementById("connection");
+
+    if (!isAll) {
+      languageTag.textContent = lang;
+      if (params.get("tag") === "1") stage.classList.add("show-tag");
+    }
+
+    let retry = 500;
+    let reconnectTimer;
+
+    function fitCaption() {
+      caption.style.removeProperty("font-size");
+      const bodyStyle = getComputedStyle(document.body);
+      const available = Math.max(1, innerHeight - parseFloat(bodyStyle.paddingTop) - parseFloat(bodyStyle.paddingBottom));
+      let low = 1, high = Math.max(1, Math.floor(parseFloat(getComputedStyle(caption).fontSize)));
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        caption.style.fontSize = `${middle}px`;
+        if (stage.offsetHeight <= available) low = middle;
+        else high = middle - 1;
+      }
+      caption.style.fontSize = `${low}px`;
+    }
+
+    new ResizeObserver(fitCaption).observe(document.documentElement);
+    document.fonts.ready.then(fitCaption);
+
+    function renderLines(entries) {
+      subtitles.replaceChildren();
+      let hasContent = false;
+      for (const [targetLang, text] of entries) {
+        if (!text || !text.trim()) continue;
+        hasContent = true;
+        const line = document.createElement("div");
+        line.className = "subtitle-line";
+        line.dataset.lang = targetLang;
+        line.textContent = text.trim();
+        subtitles.appendChild(line);
+      }
+      fitCaption();
+      stage.classList.toggle("visible", hasContent);
+    }
+
+    if (preview) {
+      if (isAll) {
+        renderLines([
+          ["Japanese", "お腹空きすぎたからちょっと"],
+          ["English", "Thanks for paying attention."],
+          ["Chinese", "謝謝你這麼關心"]
+        ]);
+      } else {
+        renderLines([[lang, params.get("text") || "LumaCaption siap tampil di OBS"]]);
+      }
+    } else {
+      function connect() {
+        clearTimeout(reconnectTimer);
+        const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${location.host}/ws?lang=${encodeURIComponent(isAll ? "all" : lang)}`;
+        const socket = new WebSocket(wsUrl);
+        socket.onopen = () => { retry = 500; connection.classList.remove("visible"); };
+        socket.onmessage = event => {
+          try {
+            const data = JSON.parse(event.data);
+            if (isAll && data.all) {
+              renderLines(Object.entries(data.all));
+            } else if (!isAll && data.lang === lang) {
+              renderLines([[lang, data.text || ""]]);
+            }
+          } catch (_) {}
+        };
+        socket.onclose = () => {
+          renderLines([]);
+          connection.classList.add("visible");
+          reconnectTimer = setTimeout(connect, retry);
+          retry = Math.min(retry * 1.8, 10000);
+        };
+        socket.onerror = () => socket.close();
+      }
+      connect();
+    }
+  </script>
+</body>
+</html>

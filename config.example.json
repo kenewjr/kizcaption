@@ -1,0 +1,24 @@
+{
+  "microphone_device": null,
+  "source_language": "id",
+  "targets": [
+    {"language": "English"}
+  ],
+  "overlay": {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "font_family": "Segoe UI",
+    "font_size": 48
+  },
+  "whisper_model": "small",
+  "whisper_beam_size": 3,
+  "whisper_hotwords": "",
+  "stt_device": "auto",
+  "mt_device": "cpu",
+  "nllb_model": "mijuanlo/nllb-200-distilled-600M-ct2-int8",
+  "vad_threshold": 0.5,
+  "min_silence_ms": 650,
+  "min_speech_ms": 250,
+  "max_utterance_seconds": 20,
+  "caption_timeout_seconds": 8
+}
