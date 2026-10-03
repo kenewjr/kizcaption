@@ -21,7 +21,7 @@ Mikrofon Windows → 16 kHz Mono → Silero VAD v5 → Faster-Whisper → NLLB-2
 
 ---
 
-## Fitur Unggulan KizCaption (v1.3.0)
+## Fitur Unggulan KizCaption (v1.0.0)
 
 ### 1. Struktur Antarmuka 6 Tab Bersih (Tanpa Duplikasi)
 Antarmuka pengguna tertata rapi menggunakan sistem tab Tkinter modern:
@@ -33,8 +33,10 @@ Antarmuka pengguna tertata rapi menggunakan sistem tab Tkinter modern:
   - Pilihan model STT Whisper (`tiny` hingga `large-v3-turbo`), perangkat (`auto`, `cuda`, `cpu`), dan beam size.
   - Pilihan model MT NLLB-200, perangkat, beam size, dan batas thread CPU.
   - Parameter Silero VAD (ambang probabilitas suara, jeda hening ms, batas durasi kalimat).
+  - Sensor Kata Kasar Otomatis (TOS Safe) dan normalisasi slang streamer.
   - Saluran audio (mix/left/right), normalisasi otomatis sinyal pelan, dan port overlay.
 - **Tab 3 — Gaya Caption (3 Profil & Live In-App Preview)**:
+  - 1-Click Platform Safe-Zone Presets (YouTube 1080p, Twitch, TikTok Live 9:16 portrait).
   - Konfigurasi independen untuk Slot 1, Slot 2, dan Slot 3.
   - **Live In-App Caption Preview**: Pratinjau kanvas langsung di dalam aplikasi untuk melihat hasil font, warna, outline, glow neon, dan background tanpa membuka browser luar.
   - Fitur **Impor CSS** dan **Ekspor CSS** per profil.
@@ -46,7 +48,7 @@ Antarmuka pengguna tertata rapi menggunakan sistem tab Tkinter modern:
   - Daftar URL Browser Source untuk Slot 1, 2, 3, dan mode Multi-Bahasa All-in-One.
   - Tombol Salin URL dan Buka Preview Browser.
 - **Tab 6 — Tentang**:
-  - Informasi versi KizCaption v1.3.0, logo KZP, lisensi komponen, dan credit `by kenewjr 2026`.
+  - Informasi versi KizCaption v1.0.0, tombol Cek Pembaruan GitHub, logo KZP, lisensi komponen, dan credit `by kenewjr 2026`.
 
 ### 2. Tampilan Scrollbar Modern & Dukungan Tema Gelap / Terang
 - Scrollbar ramping minimalis (8px) dengan sudut membulat, tanpa panah atas/bawah kuno.

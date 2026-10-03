@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag version name (e.g. v1.3.0)'
+        description: 'Tag version name (e.g. v1.0.0)'
         required: false
-        default: 'v1.3.0'
+        default: 'v1.0.0'
 
 permissions:
   contents: write
@@ -41,9 +41,24 @@ jobs:
         run: |
           python -m unittest discover -s tests -v
 
+      - name: Prepare Assets for Bundler
+        shell: powershell
+        run: |
+          if (-not (Test-Path "models")) { New-Item -ItemType Directory -Path "models" -Force }
+          if (-not (Test-Path "output")) { New-Item -ItemType Directory -Path "output" -Force }
+          Copy-Item -Force "src/lumacaption/assets/silero_vad.onnx" "models/silero_vad.onnx"
+          Copy-Item -Force "src/lumacaption/output/overlay.html" "output/overlay.html"
+          if (-not (Test-Path "vocabulary.json")) {
+              Copy-Item -Force "src/lumacaption/assets/vocabulary.json" "vocabulary.json"
+          }
+          if (-not (Test-Path "config.json")) {
+              Copy-Item -Force "config.example.json" "config.json"
+          }
+
       - name: Build Standalone .EXE
         run: |
           pyinstaller KizCaption.spec --noconfirm
+
 
       - name: Copy user template assets to dist
         shell: powershell

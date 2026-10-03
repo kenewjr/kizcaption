@@ -43,12 +43,13 @@ inference_results.json
 audio_results.json
 worker_audio_results.json
 
-vocabulary.json
 *.bak
 *.tmp
 *.corrupt
 /output/*
+!output/overlay.html
 /models/*
+!models/silero_vad.onnx
 !src/lumacaption/assets/*
 *.zip
 *.egg-info/

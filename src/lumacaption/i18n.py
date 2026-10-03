@@ -965,6 +965,30 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "Buka Folder Logs",
         "en": "Open Logs Folder",
     },
+    "btn_check_updates": {
+        "id": "🔄  Periksa Pembaruan",
+        "en": "🔄  Check for Updates",
+    },
+    "update_title": {
+        "id": "Pembaruan KizCaption",
+        "en": "KizCaption Updates",
+    },
+    "update_found_msg": {
+        "id": "Versi baru tersedia: v{latest}!\n(Versi saat ini: v{current})",
+        "en": "A new version is available: v{latest}!\n(Current version: v{current})",
+    },
+    "update_ask_open": {
+        "id": "Apakah Anda ingin membuka halaman rilis GitHub untuk mengunduh?",
+        "en": "Would you like to open the GitHub release page to download?",
+    },
+    "update_none_msg": {
+        "id": "KizCaption sudah versi terbaru (v{version}).",
+        "en": "KizCaption is already up to date (v{version}).",
+    },
+    "update_err_msg": {
+        "id": "Gagal memeriksa pembaruan dari GitHub",
+        "en": "Failed to check for updates from GitHub",
+    },
 }
 
 

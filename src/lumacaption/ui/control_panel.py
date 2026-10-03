@@ -1296,6 +1296,38 @@ class ControlPanel:
         ttk.Button(btn_row, text=self.t("btn_open_config_folder"), command=lambda: self._open_dir(self.app_dir)).pack(side="left", padx=4)
         ttk.Button(btn_row, text=self.t("btn_open_models_folder"), command=lambda: self._open_dir(self.app_dir / "models")).pack(side="left", padx=4)
         ttk.Button(btn_row, text=self.t("btn_open_logs_folder"), command=lambda: self._open_dir(self.app_dir / "logs")).pack(side="left", padx=4)
+        ttk.Button(btn_row, text=self.t("btn_check_updates"), command=self.check_for_updates_ui).pack(side="left", padx=4)
+
+    def check_for_updates_ui(self) -> None:
+        self._set_activity("Memeriksa pembaruan rilis GitHub…", "working")
+
+        def run_check():
+            from lumacaption.updater import check_for_updates
+            res = check_for_updates(__version__)
+
+            def on_done():
+                self._set_activity("Pemeriksaan pembaruan selesai", "idle")
+                if res["has_update"]:
+                    msg = (
+                        f"{self.t('update_found_msg', latest=res['latest_version'], current=__version__)}\n\n"
+                        f"{self.t('update_ask_open')}"
+                    )
+                    if messagebox.askyesno(self.t("update_title"), msg):
+                        webbrowser.open(res["release_url"])
+                elif res["error"]:
+                    messagebox.showwarning(
+                        self.t("update_title"),
+                        f"{self.t('update_err_msg')}:\n{res['error']}",
+                    )
+                else:
+                    messagebox.showinfo(
+                        self.t("update_title"),
+                        self.t("update_none_msg", version=__version__),
+                    )
+
+            self.root.after(0, on_done)
+
+        threading.Thread(target=run_check, daemon=True).start()
 
     def _open_dir(self, p: Path) -> None:
         p.mkdir(parents=True, exist_ok=True)
