@@ -66,6 +66,16 @@ def sanitize_transcript(text: str) -> str:
     return trim_dangling_conjunctions(cleaned)
 
 
+WHISPER_CUSTOM_MODELS: dict[str, str] = {
+    "whisper-small-id": "ammaraldirawi/faster-whisper-small-id-int8",
+    "whisper-medium-id": "cahya/faster-whisper-medium-id",
+}
+
+
+def resolve_whisper_repo(model_key: str) -> str:
+    return WHISPER_CUSTOM_MODELS.get(model_key, model_key)
+
+
 class WhisperEngine:
     def __init__(
         self,
@@ -137,21 +147,40 @@ class WhisperEngine:
 
     def _resolve_model(self) -> str:
         from faster_whisper.utils import download_model
-        from huggingface_hub.errors import LocalEntryNotFoundError
 
         def complete(path: str) -> bool:
             root = Path(path)
             required = ("model.bin", "config.json", "tokenizer.json")
             return all((root / name).is_file() for name in required) and any(root.glob("vocabulary.*"))
 
-        # A cached snapshot directory can exist while model.bin is still downloading.
+        # 1. Direct path check if user passed a local folder
+        direct_path = Path(self.model_size).expanduser()
+        if direct_path.is_dir() and complete(str(direct_path)):
+            return str(direct_path.resolve())
+
+        # 2. Check local cache via model_manager inspect_model
         try:
-            path = download_model(self.model_size, cache_dir=self.model_cache, local_files_only=True)
-        except LocalEntryNotFoundError:
+            from lumacaption.model_manager import inspect_model
+            state, local_path = inspect_model(self.model_size, Path(self.model_cache))
+            if state == "Tersedia lokal" and local_path is not None and complete(str(local_path)):
+                return str(local_path.resolve())
+        except Exception:
+            pass
+
+        target = resolve_whisper_repo(self.model_size)
+
+        # 3. Try local cache only first
+        path = ""
+        try:
+            path = download_model(target, cache_dir=self.model_cache, local_files_only=True)
+        except Exception:
             path = ""
+
+        # 4. If not available locally or incomplete, download from Hugging Face
         if not path or not complete(path):
             self.on_warning(f"Mengunduh Whisper {self.model_size}; progres ada di terminal")
-            path = download_model(self.model_size, cache_dir=self.model_cache)
+            path = download_model(target, cache_dir=self.model_cache)
+
         if not complete(path):
             raise RuntimeError(f"Cache Whisper {self.model_size} belum lengkap")
         return path

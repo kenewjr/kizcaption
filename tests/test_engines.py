@@ -246,6 +246,12 @@ class EngineComputeAndCacheTests(unittest.TestCase):
         self.assertIn("beruntung", norm2.lower())
         self.assertIn("lucu", norm2.lower())
 
+    def test_custom_whisper_model_resolution(self):
+        from lumacaption.stt.whisper_engine import resolve_whisper_repo
+        self.assertEqual(resolve_whisper_repo("whisper-small-id"), "ammaraldirawi/faster-whisper-small-id-int8")
+        self.assertEqual(resolve_whisper_repo("whisper-medium-id"), "cahya/faster-whisper-medium-id")
+        self.assertEqual(resolve_whisper_repo("small"), "small")
+
 
 if __name__ == "__main__":
     unittest.main()

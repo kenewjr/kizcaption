@@ -332,18 +332,34 @@ class NllbEngine:
         path = Path(self.model_id_or_path).expanduser()
         if path.exists():
             return path.resolve()
+
+        required = ("model.bin", "config.json", "shared_vocabulary.json", "sentencepiece.bpe.model")
+
+        # 2. Check local cache via model_manager inspect_model
+        try:
+            from lumacaption.model_manager import inspect_model
+            state, local_path = inspect_model(self.model_id_or_path, self.cache_dir)
+            if state == "Tersedia lokal" and local_path is not None and all((local_path / name).is_file() for name in required):
+                return local_path.resolve()
+        except Exception:
+            pass
+
+        repo_id = self.model_id_or_path
+        if repo_id == "nllb":
+            repo_id = "mijuanlo/nllb-200-distilled-600M-ct2-int8"
+        elif repo_id == "nllb-1.3b":
+            repo_id = "mijuanlo/nllb-200-distilled-1.3B-int8-ct2"
+
         from huggingface_hub import snapshot_download
         from huggingface_hub.errors import LocalEntryNotFoundError
 
-        required = ("model.bin", "config.json", "shared_vocabulary.json", "sentencepiece.bpe.model")
-        
         # Resolve revision per repo catalog
         revision = "16bc5ff0482f9f1c0d35bdef950721ce58640789"
-        if "1.3b" in self.model_id_or_path.lower() or "1.3B" in self.model_id_or_path:
+        if "1.3b" in repo_id.lower() or "1.3B" in repo_id:
             revision = "6eee5eda03ff1441d2a6117d34a02e44504ce321"
 
         kwargs = dict(
-            repo_id=self.model_id_or_path,
+            repo_id=repo_id,
             revision=revision,
             cache_dir=self.cache_dir,
             allow_patterns=required,
