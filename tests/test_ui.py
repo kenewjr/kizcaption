@@ -138,11 +138,39 @@ class DashboardTests(unittest.TestCase):
             panel._handle_event(PipelineEvent("published", "Caption terkirim ke server overlay"))
             self.assertEqual(panel.activity_var.get(), "Caption terkirim ke server overlay")
 
+            # Verify started and listening events lock live controls and stop button
+            panel._handle_event(PipelineEvent("started", "Listening"))
+            self.assertEqual(panel.status_var.get(), "LIVE")
+            self.assertEqual(panel.start_button.cget("text"), "HENTIKAN CAPTION")
+            self.assertEqual(str(panel.save_button.cget("state")), "disabled")
+
+            panel._handle_event(PipelineEvent("listening", "Listening active", {"device": "Test Mic", "sample_rate": 16000}))
+            self.assertEqual(panel.status_var.get(), "LIVE")
+            self.assertEqual(panel.start_button.cget("text"), "HENTIKAN CAPTION")
+            self.assertEqual(str(panel.save_button.cget("state")), "disabled")
+
+            # Target reselection check: choose a language, verify 'Tidak digunakan' is available, then re-select it
+            panel.target_vars[1].set("Japanese")
+            self.assertIn(UNUSED_TARGET, panel.target_boxes[1]["values"])
+            panel.target_vars[1].set(UNUSED_TARGET)
+            self.assertEqual(panel.target_vars[1].get(), UNUSED_TARGET)
+
+            # Multiple reload UI stability: no widget leak in _editable
+            initial_count = len(panel._editable)
+            panel._reload_ui()
+            panel._reload_ui()
+            self.assertEqual(len(panel._editable), initial_count)
+            for widget, _ in panel._editable:
+                self.assertTrue(widget.winfo_exists())
+
             panel._handle_event(PipelineEvent("error", "Test failure"))
             panel._handle_event(PipelineEvent("stopped", ""))
+            panel._finish_stop()
             self.assertEqual(panel.status_var.get(), "ERROR")
             self.assertEqual(panel.activity_var.get(), "Test failure")
             self.assertEqual(panel.vad_status_var.get(), "— %")
+            self.assertEqual(panel.start_button.cget("text"), "MULAI CAPTION")
+            self.assertEqual(str(panel.save_button.cget("state")), "normal")
             self.assertFalse(errors, errors)
             panel._closed = True
 

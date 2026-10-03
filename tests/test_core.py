@@ -366,6 +366,19 @@ class CoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             AppConfig(denoise_engine="invalid").validate()
 
+    def test_version_and_metadata(self):
+        import lumacaption
+        self.assertEqual(lumacaption.__version__, "1.0.3")
+        self.assertIn("kenewjr", lumacaption.CREDIT)
+
+    def test_target_profiles_preserved_with_gaps(self):
+        targets = selected_targets(["English", "Not used", "Japanese"])
+        self.assertEqual(len(targets), 2)
+        self.assertEqual(targets[0].language, "English")
+        self.assertEqual(targets[0].profile, 1)
+        self.assertEqual(targets[1].language, "Japanese")
+        self.assertEqual(targets[1].profile, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

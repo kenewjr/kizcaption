@@ -21,7 +21,7 @@ Microphone (WASAPI) → 16 kHz Mono → Silero VAD v5 → Faster-Whisper → Met
 
 ---
 
-## Key Features (v1.0.2)
+## Key Features (v1.0.3)
 
 ### 1. Clean 6-Tab Interface (Zero Redundancy)
 A sleek, categorized Tkinter desktop dashboard:
@@ -48,7 +48,7 @@ A sleek, categorized Tkinter desktop dashboard:
   - Ready-to-copy Browser Source URLs for Slot 1, Slot 2, Slot 3, and All-in-One Multi-Language modes.
   - One-click "Copy URL" and "Open in Browser" buttons with real-time client connection diagnostics.
 - **Tab 6 — About**:
-  - Version info (v1.0.2), one-click GitHub Update Checker, KZP branding, license attributions, and `by kenewjr 2026` credit.
+  - Version info (v1.0.3), one-click GitHub Update Checker, KZP branding, license attributions, and `by kenewjr 2026` credit.
 
 ### 2. Modern Custom Scrollbars & Dark/Light Theme
 - Slim, elegant 8px custom scrollbars with rounded thumbs and no antiquated arrow buttons.
