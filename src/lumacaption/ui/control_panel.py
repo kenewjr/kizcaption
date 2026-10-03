@@ -1769,10 +1769,11 @@ class ControlPanel:
                 self.root.after(0, lambda: self._set_activity("DTLN Neural Denoiser siap digunakan", "ok"))
                 self.root.after(0, self._refresh_dtln_status)
             except Exception as e:
-                def on_err():
+                err_msg = str(e)
+                def on_err(msg=err_msg):
                     self.download_pbar.stop()
                     self.download_pbar.configure(mode="determinate", value=0)
-                    self.dl_status_var.set(f"❌ Gagal mengunduh DTLN: {e}")
+                    self.dl_status_var.set(f"❌ Gagal mengunduh DTLN: {msg}")
                 self.root.after(0, on_err)
             finally:
                 self.root.after(0, lambda: getattr(self, "dtln_download_btn", None) and self.dtln_download_btn.__setitem__("state", "normal"))
@@ -2541,6 +2542,7 @@ class ControlPanel:
         if self._pipeline_error:
             self._set_status("ERROR", RED)
             self._set_activity(self._pipeline_error, "error")
+            self.runtime_var.set(f"❌ Error: {self._pipeline_error}")
         else:
             self._set_status("SIAP", GREEN)
             self._set_activity("Caption dihentikan", "ok")
@@ -2600,8 +2602,8 @@ class ControlPanel:
         elif event.kind == "preparing":
             if not self._stopping:
                 self._set_status("MENYIAPKAN", CYAN)
+                self.activity_var.set("Inisialisasi sistem & model AI…")
                 self.runtime_var.set(event.message)
-                self._set_activity(event.message, "working")
         elif event.kind == "model_ready":
             self.runtime_var.set(
                 f"Whisper {data.get('model', '')} • STT {data.get('stt_device', '').upper()} • MT {data.get('mt_device', '').upper()}"
@@ -2675,10 +2677,19 @@ class ControlPanel:
             self._pipeline_error = event.message
             self._set_status("ERROR", RED)
             self._set_activity(event.message, "error")
-        elif event.kind == "warning":
+            self.runtime_var.set(f"❌ Error: {event.message}")
+            self._stopping = False
+            self._set_live_controls(False)
+            self.start_button.configure(
+                text=self.t("btn_start_caption_caps"),
+                style="Accent.TButton",
+                state="normal",
+            )
+            self._reset_audio()
+        elif event.kind in {"warning", "background"}:
             self._set_activity(event.message, "warning")
-        elif event.kind == "background":
-            self._set_activity(event.message, "warning")
+            if not self._stopping and self.status_var.get() == "MENYIAPKAN":
+                self.runtime_var.set(f"Proses: {event.message}")
 
     def _set_status(self, text: str, color: str) -> None:
         self.status_var.set(text)

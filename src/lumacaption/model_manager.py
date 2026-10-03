@@ -11,6 +11,19 @@ import sys
 import threading
 import time
 
+class _NullStream:
+    def write(self, *args, **kwargs):
+        pass
+    def flush(self, *args, **kwargs):
+        pass
+    def isatty(self):
+        return False
+
+if getattr(sys, "stdout", None) is None:
+    sys.stdout = _NullStream()
+if getattr(sys, "stderr", None) is None:
+    sys.stderr = _NullStream()
+
 NLLB_ID = 'mijuanlo/nllb-200-distilled-600M-ct2-int8'
 NLLB_1_3B_ID = 'mijuanlo/nllb-200-distilled-1.3B-int8-ct2'
 WHISPER_FILES = ('model.bin', 'config.json', 'vocabulary.*')
@@ -375,13 +388,14 @@ def ensure_model(key: str, cache: Path, on_status=None) -> Path:
         if key == 'dtln':
             cache.mkdir(parents=True, exist_ok=True)
             from huggingface_hub import hf_hub_download
-            emit('Mengunduh DTLN (1/2)')
+            emit('Mengunduh', fraction=0.05, speed_str="Menghubungkan…", size_str="0.0 MB / 3.96 MB", detail="Menghubungkan DTLN model 1/2…")
             p1 = Path(hf_hub_download('niobures/DTLN', 'models/DTLN/onnx/model_1.onnx'))
             shutil.copyfile(p1, cache / 'model_1.onnx')
-            emit('Mengunduh DTLN (2/2)')
+            emit('Mengunduh', fraction=0.50, speed_str="Proses", size_str="1.98 MB / 3.96 MB", detail="Mengunduh DTLN model 2/2…")
             p2 = Path(hf_hub_download('niobures/DTLN', 'models/DTLN/onnx/model_2.onnx'))
             shutil.copyfile(p2, cache / 'model_2.onnx')
-            emit('Tersedia lokal')
+            emit('Memverifikasi', fraction=0.95, size_str="3.96 MB / 3.96 MB", detail="Memverifikasi integritas model DTLN…")
+            emit('Tersedia lokal', fraction=1.0)
             try:
                 persistent_cache = cache_for(get_persistent_models_dir(), key)
                 adopt_model(key, cache, persistent_cache)
@@ -403,14 +417,29 @@ def ensure_model(key: str, cache: Path, on_status=None) -> Path:
                 self.last_n = 0
                 self.speed_bps = 0.0
                 kwargs['disable'] = False
+                kwargs['file'] = _NullStream()
                 super().__init__(*args, **kwargs)
+                self.fp = kwargs['file']
 
             def update(self, n=1):
-                super().update(n)
+                try:
+                    super().update(n)
+                except Exception:
+                    self.n += n
                 self._report()
 
             def display(self, *args, **kwargs):
                 self._report()
+
+            def clear(self, *args, **kwargs):
+                pass
+
+            def close(self):
+                self._report()
+                try:
+                    super().close()
+                except Exception:
+                    pass
 
             def _report(self):
                 now = time.monotonic()

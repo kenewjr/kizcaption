@@ -184,7 +184,7 @@ class WhisperEngine:
 
         # 4. If not available locally or incomplete, download from Hugging Face
         if not path or not complete(path):
-            self.on_warning(f"Mengunduh Whisper {self.model_size}; progres ada di terminal")
+            self.on_warning(f"Mengunduh model Whisper {self.model_size} dari HuggingFace...")
             path = download_model(target, cache_dir=self.model_cache)
 
         if not complete(path):
@@ -206,6 +206,7 @@ class WhisperEngine:
             self._candidate_index += 1
             compute_type = self._resolve_compute_type(device)
             try:
+                self.on_warning(f"Memuat Whisper {model_size} ke {device.upper()} ({compute_type})...")
                 self._model = WhisperModel(
                     self._model_path,
                     device=device,
@@ -227,6 +228,7 @@ class WhisperEngine:
         """Warm the actual encoder/decoder; loading weights alone misses DLL failures."""
         if self._model is None:
             self._load_next()
+        self.on_warning(f"Uji coba inferensi Whisper [{self.active_model}]...")
         try:
             silence = np.zeros(4000, dtype=np.float32)
             segments, _ = self._model.transcribe(

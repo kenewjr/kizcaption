@@ -376,7 +376,7 @@ class NllbEngine:
                 return cached
         except LocalEntryNotFoundError:
             pass
-        self.on_warning("Mengunduh NLLB; progres ada di terminal")
+        self.on_warning("Mengunduh model translasi NLLB-200 (~604 MB)... Harap tunggu.")
         cached = Path(snapshot_download(**kwargs))
         if not all((cached / name).is_file() for name in required):
             raise RuntimeError("Cache NLLB belum lengkap")
@@ -408,6 +408,7 @@ class NllbEngine:
         if self._model_path is None:
             self._model_path = self._resolve_model()
         compute_type = self._resolve_compute_type(device)
+        self.on_warning(f"Memuat model translasi NLLB-200 ke {device.upper()} ({compute_type})...")
         self._translator = ctranslate2.Translator(
             str(self._model_path),
             device=device,
@@ -420,7 +421,7 @@ class NllbEngine:
         )
         self.active_device = device
         self.active_compute_type = compute_type
-        self.on_warning(f"NLLB active: {device} ({compute_type})")
+        self.on_warning(f"NLLB aktif: {device.upper()} ({compute_type})")
 
     def _preferred_device(self) -> str:
         if self.requested_device != "auto":
@@ -518,6 +519,7 @@ class NllbEngine:
     def prepare(self, targets: Sequence[str]) -> None:
         """Exercise translation kernels, but never publish the warm-up text."""
         if targets:
+            self.on_warning(f"Uji coba translasi NLLB-200 [{targets[0]}]...")
             self.translate("Hello.", "eng_Latn", targets[:1])
 
     def translate(self, text: str, source_nllb: str, targets: Sequence[str]) -> dict[str, str]:

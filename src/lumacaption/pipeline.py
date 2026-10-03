@@ -246,7 +246,7 @@ class CaptionPipeline:
                     user_hotwords=self.config.whisper_hotwords or "",
                 )
 
-                self._emit("preparing", "Menyiapkan Whisper dan memeriksa inference…")
+                self._emit("preparing", f"Memuat Whisper [{self.config.whisper_model}]…")
                 stt_kwargs = {
                     "beam_size": self.config.whisper_beam_size,
                     "hotwords": combined_hotwords,
@@ -273,10 +273,12 @@ class CaptionPipeline:
                         beam_size=self.config.whisper_beam_size,
                         hotwords=combined_hotwords,
                     )
+                self._emit("preparing", f"Memeriksa inferensi Whisper [{self.config.whisper_model}]…")
                 stt.prepare(source_whisper_code(self.config.source_language))
                 if self._stop_requested.is_set():
                     return
-                self._emit("preparing", "Menyiapkan NLLB dan memeriksa terjemahan…")
+                active_targets_str = ", ".join(target_names) if target_names else "tanpa translasi"
+                self._emit("preparing", f"Menyiapkan translasi NLLB-200 [{active_targets_str}]…")
                 mt_kwargs = {}
                 if hasattr(self.config, "mt_compute_type"):
                     mt_kwargs["compute_type"] = self.config.mt_compute_type
@@ -301,6 +303,8 @@ class CaptionPipeline:
                         self.app_dir / "models" / "nllb-cache",
                         warning,
                     )
+                if target_names:
+                    self._emit("preparing", f"Memeriksa inferensi translasi NLLB-200 [{active_targets_str}]…")
                 mt.prepare(target_names)
                 if self._stop_requested.is_set():
                     return
@@ -411,10 +415,14 @@ class CaptionPipeline:
                     finally:
                         utterances.task_done()
             except Exception as exc:
+                if self._loop and self._loop.is_running():
+                    self._loop.call_soon_threadsafe(ready.set)
                 if not self._stop_requested.is_set():
                     self._emit("error", f"Inference failed: {exc}")
                     self.request_stop()
             finally:
+                if self._loop and self._loop.is_running():
+                    self._loop.call_soon_threadsafe(ready.set)
                 for engine in (mt, stt):
                     if engine is not None:
                         try:
@@ -433,6 +441,8 @@ class CaptionPipeline:
 
         async def capture_stage() -> None:
             await ready.wait()
+            if self._stop_requested.is_set():
+                return
             delay = 1.0
             last_vad_event_at = 0.0
             while not self._stop_requested.is_set():

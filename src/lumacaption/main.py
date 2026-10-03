@@ -9,6 +9,19 @@ import sys
 import tkinter as tk
 from tkinter import messagebox
 
+class _NullStream:
+    def write(self, *args, **kwargs):
+        pass
+    def flush(self, *args, **kwargs):
+        pass
+    def isatty(self):
+        return False
+
+if getattr(sys, "stdout", None) is None:
+    sys.stdout = _NullStream()
+if getattr(sys, "stderr", None) is None:
+    sys.stderr = _NullStream()
+
 from lumacaption.config import AppConfig, ConfigStore, backup_file
 from lumacaption.ui.control_panel import ControlPanel
 
