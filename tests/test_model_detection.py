@@ -30,13 +30,14 @@ class ModelDetectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             app_dir = Path(tmp)
             candidates = get_candidate_model_dirs(app_dir)
-            self.assertTrue(len(candidates) >= 2)
-            # app_dir models should be in candidates
+            self.assertTrue(len(candidates) >= 1)
+            self.assertIn(pdir.resolve(), candidates)
+            # app_dir models should be in candidates after creation
             app_models_resolved = (app_dir / "models").resolve()
-            # If app_dir/models is created, it will be added
             (app_dir / "models").mkdir(parents=True, exist_ok=True)
             candidates_with_models = get_candidate_model_dirs(app_dir)
             self.assertIn(app_models_resolved, candidates_with_models)
+            self.assertTrue(len(candidates_with_models) >= 2)
 
     def test_find_and_adopt_silero(self):
         with tempfile.TemporaryDirectory() as tmp_source, tempfile.TemporaryDirectory() as tmp_target:

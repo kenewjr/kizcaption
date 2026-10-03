@@ -96,6 +96,9 @@ def get_persistent_models_dir() -> Path:
     path = base / "KizCaption" / "models"
     try:
         path.mkdir(parents=True, exist_ok=True)
+        (path / "whisper").mkdir(parents=True, exist_ok=True)
+        (path / "nllb-cache").mkdir(parents=True, exist_ok=True)
+        (path / "dtln").mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
     return path
