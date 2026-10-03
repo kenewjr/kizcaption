@@ -79,10 +79,26 @@ jobs:
         run: |
           Compress-Archive -Path dist/KizCaption/* -DestinationPath KizCaption-windows-x64.zip -Force
 
+      - name: Determine Release Tag
+        id: release_info
+        shell: powershell
+        run: |
+          $tag = "${{ inputs.tag_name }}"
+          if (-not $tag -or $tag.Trim() -eq "") {
+              if ("${{ github.ref }}".StartsWith("refs/tags/")) {
+                  $tag = "${{ github.ref_name }}"
+              } else {
+                  $tag = "v1.0.0"
+              }
+          }
+          Write-Output "tag=$tag" >> $env:GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: KizCaption-windows-x64.zip
-          name: "KizCaption ${{ github.ref_name || inputs.tag_name }}"
+          name: "KizCaption ${{ steps.release_info.outputs.tag }}"
           generate_release_notes: true
           draft: false
