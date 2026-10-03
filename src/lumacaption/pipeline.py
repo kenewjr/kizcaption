@@ -78,7 +78,9 @@ class CaptionPipeline:
 
     def _emit(self, kind: str, message: str, data: dict | None = None) -> None:
         try:
-            if kind == "error":
+            if kind in {"audio_level", "vad_probability"}:
+                pass
+            elif kind == "error":
                 logger.error(f"[{kind}] {message}")
             elif kind == "warning":
                 logger.warning(f"[{kind}] {message}")

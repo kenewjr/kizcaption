@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 import hashlib
 import logging
 from logging.handlers import RotatingFileHandler
@@ -106,36 +107,82 @@ def ensure_workspace(directory: Path) -> list[str]:
     return warnings
 
 
-def setup_logging(directory: Path) -> logging.Logger:
+class LevelFilter(logging.Filter):
+    """Filter records to match a specific level (and critical for error)."""
+    def __init__(self, target_level: int) -> None:
+        super().__init__()
+        self.target_level = target_level
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if self.target_level == logging.ERROR:
+            return record.levelno >= logging.ERROR
+        return record.levelno == self.target_level
+
+
+def setup_logging(directory: Path, timestamp: str | None = None) -> logging.Logger:
     logs_dir = directory / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger("lumacaption")
     logger.setLevel(logging.DEBUG)
+
+    for h in list(logger.handlers):
+        try:
+            h.close()
+        except Exception:
+            pass
+        logger.removeHandler(h)
 
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    for filename in ("kizcaption.log", "diagnostic.log"):
+    if not timestamp:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    levels = [
+        ("debug", logging.DEBUG),
+        ("info", logging.INFO),
+        ("warning", logging.WARNING),
+        ("error", logging.ERROR),
+    ]
+
+    import platform
+    from lumacaption import __version__
+
+    banner_lines = [
+        "=" * 65,
+        f"KIZCAPTION SESSION STARTED (v{__version__})",
+        f"Platform: {platform.platform()} | Python: {sys.version.split()[0]}",
+        f"Executable: {sys.executable} | App Dir: {directory}",
+    ]
+    try:
+        from lumacaption.model_manager import hardware_info
+        hw_str = hardware_info(directory)
+        banner_lines.append(f"Hardware:\n{hw_str}")
+    except Exception as e:
+        banner_lines.append(f"Hardware info query: {e}")
+    banner_lines.append("=" * 65)
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for level_name, level_code in levels:
+        filename = f"{level_name}log-{timestamp}.log"
         log_path = logs_dir / filename
-        handler = RotatingFileHandler(log_path, maxBytes=5_242_880, backupCount=3, encoding="utf-8")
-        handler.setLevel(logging.DEBUG)
+        header_text = "\n".join(
+            f"{now_str} [{level_name.upper()}] [lumacaption] {line}" for line in banner_lines
+        ) + "\n"
+        try:
+            log_path.write_text(header_text, encoding="utf-8")
+        except Exception:
+            pass
+
+        handler = RotatingFileHandler(log_path, mode="a", maxBytes=5_242_880, backupCount=3, encoding="utf-8")
+        handler.setLevel(level_code)
+        handler.addFilter(LevelFilter(level_code))
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-    import platform
-    logger.info("=" * 65)
-    logger.info("KIZCAPTION SESSION STARTED (v1.0.2)")
-    logger.info(f"Platform: {platform.platform()} | Python: {sys.version.split()[0]}")
-    logger.info(f"Executable: {sys.executable} | App Dir: {directory}")
-    try:
-        from lumacaption.model_manager import hardware_info
-        hw = hardware_info()
-        logger.info(f"Hardware: GPU={hw.get('gpu_name')}, VRAM={hw.get('vram_mib')} MiB, RAM={hw.get('ram_total_mib')} MiB, CPU Cores={hw.get('cpu_cores')}")
-    except Exception as e:
-        logger.debug(f"Hardware info query: {e}")
-    logger.info("=" * 65)
     return logger
 
 
