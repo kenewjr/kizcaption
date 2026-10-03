@@ -428,6 +428,21 @@ class ControlPanel:
         self._apply_layout()
         self._apply_engine_layout()
 
+        # Preserve live or stopping state across UI reload
+        is_live = bool(self.pipeline and (self.pipeline.running or getattr(self.pipeline, "inference_busy", False)))
+        self._set_live_controls(is_live)
+        if is_live:
+            self._set_status("LIVE", GREEN)
+            self.start_button.configure(
+                text=self.t("btn_stop_caption_caps"),
+                style="Danger.TButton",
+                state="normal",
+            )
+        elif self._stopping:
+            self.start_button["state"] = "disabled"
+            self.start_button.configure(text=self.t("btn_stopping_caption_caps"))
+            self._set_status("MENUTUP", AMBER)
+
     def toggle_theme(self) -> None:
         new_mode = "light" if self._theme_name == "dark" else "dark"
         self.config.ui_theme = new_mode
@@ -441,6 +456,7 @@ class ControlPanel:
         c = self.colors
         if hasattr(self, "shell") and self.shell and self.shell.winfo_exists():
             self.shell.destroy()
+        self._editable = []
         self.shell = shell = ttk.Frame(self.root, padding=(20, 16))
         shell.pack(fill="both", expand=True)
         shell.columnconfigure(0, weight=1)
@@ -2536,7 +2552,7 @@ class ControlPanel:
             self._set_status("MENUTUP", AMBER)
             self._set_activity("Capture dihentikan; menutup mesin caption…", "warning")
             self.start_button["state"] = "disabled"
-            self.start_button.configure(text="MENUTUP MESIN")
+            self.start_button.configure(text=self.t("btn_stopping_caption_caps"))
             return
         config = self.save(announce=False)
         if not config or not self._sync_overlay(show_error=True):
@@ -2600,7 +2616,7 @@ class ControlPanel:
     def _finish_stop(self) -> None:
         if self.pipeline and (self.pipeline.running or self.pipeline.inference_busy):
             self.start_button["state"] = "disabled"
-            self.start_button.configure(text="MENUTUP MESIN")
+            self.start_button.configure(text=self.t("btn_stopping_caption_caps"))
             if not self._closing_since:
                 self._closing_since = time.monotonic()
             if time.monotonic() - self._closing_since >= 2.0:
@@ -2690,12 +2706,10 @@ class ControlPanel:
             self.metrics_var.set(
                 f"⚡ STT {stt_ms:.0f} ms • MT {mt_ms:.0f} ms | Respon: {total_ms:.0f} ms (di luar jeda hening)"
             )
-        elif event.kind == "started":
+        elif event.kind in {"started", "listening"}:
             self._set_status("LIVE", GREEN)
             self._set_activity(event.message, "ok")
-        elif event.kind == "listening":
-            self._set_status("LIVE", GREEN)
-            self._set_activity(event.message, "ok")
+            self._set_live_controls(True)
             if data.get("device"):
                 self.audio_device_var.set(
                     f"Aktif • {data['device']} • {data.get('sample_rate', 16000)} Hz"
@@ -2791,15 +2805,25 @@ class ControlPanel:
             label.configure(text=text, width=max(max_len, 12), anchor="w")
 
     def _set_live_controls(self, live: bool) -> None:
+        valid_editable = []
         for widget, idle_state in self._editable:
-            widget["state"] = "disabled" if live else idle_state
-        self.save_button["state"] = "disabled" if live else "normal"
-        self.test_button["state"] = "disabled" if live else "normal"
-        self.start_button["state"] = "normal"
-        self.start_button.configure(
-            text=self.t("btn_stop_caption_caps") if live else self.t("btn_start_caption_caps"),
-            style="Danger.TButton" if live else "Accent.TButton",
-        )
+            try:
+                if widget.winfo_exists():
+                    widget["state"] = "disabled" if live else idle_state
+                    valid_editable.append((widget, idle_state))
+            except Exception:
+                pass
+        self._editable = valid_editable
+        if hasattr(self, "save_button") and self.save_button.winfo_exists():
+            self.save_button["state"] = "disabled" if live else "normal"
+        if hasattr(self, "test_button") and self.test_button.winfo_exists():
+            self.test_button["state"] = "disabled" if live else "normal"
+        if hasattr(self, "start_button") and self.start_button.winfo_exists():
+            self.start_button["state"] = "normal"
+            self.start_button.configure(
+                text=self.t("btn_stop_caption_caps") if live else self.t("btn_start_caption_caps"),
+                style="Danger.TButton" if live else "Accent.TButton",
+            )
 
     def _rebuild_overlay_rows(self) -> None:
         if hasattr(self, "obs_url_var"):

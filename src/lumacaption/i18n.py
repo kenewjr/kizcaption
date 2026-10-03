@@ -521,6 +521,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "HENTIKAN CAPTION",
         "en": "STOP CAPTION",
     },
+    "btn_stopping_caption_caps": {
+        "id": "MENUTUP MESIN",
+        "en": "STOPPING ENGINE",
+    },
     "card_input_voice": {
         "id": "INPUT SUARA",
         "en": "VOICE INPUT",

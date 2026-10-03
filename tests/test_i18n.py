@@ -151,6 +151,29 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
             loaded_cfg2, _ = store.load()
             self.assertEqual(loaded_cfg2.ui_language, "id")
 
+    def test_live_state_preserved_across_ui_reload(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(MicrophoneCapture, "devices", return_value=[self.device]), \
+                patch.object(ControlPanel, "_sync_overlay", return_value=True):
+            store = ConfigStore(Path(directory) / "config.json")
+            cfg = AppConfig(ui_language="id")
+            panel = ControlPanel(self.root, store, cfg, _root)
+            self.root.update()
+
+            mock_pipeline = SimpleNamespace(running=True, inference_busy=False)
+            panel.pipeline = mock_pipeline
+            panel._set_live_controls(True)
+            self.assertEqual(panel.start_button.cget("text"), "HENTIKAN CAPTION")
+            self.assertEqual(str(panel.save_button.cget("state")), "disabled")
+
+            panel.toggle_ui_language()
+            self.root.update()
+
+            self.assertEqual(panel.config.ui_language, "en")
+            self.assertEqual(panel.status_var.get(), "LIVE")
+            self.assertEqual(panel.start_button.cget("text"), "STOP CAPTION")
+            self.assertEqual(str(panel.save_button.cget("state")), "disabled")
+
     def test_model_manager_english_localization(self):
         from lumacaption.model_manager import resource_details, evaluate_vram_safety
 
