@@ -12,7 +12,7 @@ import time
 
 NLLB_ID = 'mijuanlo/nllb-200-distilled-600M-ct2-int8'
 NLLB_1_3B_ID = 'mijuanlo/nllb-200-distilled-1.3B-int8-ct2'
-WHISPER_FILES = ('model.bin', 'config.json', 'tokenizer.json', 'vocabulary.*')
+WHISPER_FILES = ('model.bin', 'config.json', 'vocabulary.*')
 NLLB_FILES = ('model.bin', 'config.json', 'shared_vocabulary.json', 'sentencepiece.bpe.model')
 
 @dataclass(frozen=True)
@@ -227,7 +227,7 @@ def ensure_model(key: str, cache: Path, on_status=None) -> Path:
                 info.repo,
                 revision=info.revision,
                 cache_dir=str(cache),
-                allow_patterns=list(info.files) + ['preprocessor_config.json'],
+                allow_patterns=list(info.files) + ['preprocessor_config.json', 'tokenizer.json', 'tokenizer_config.json'],
                 tqdm_class=Progress,
                 max_workers=2,
             ))

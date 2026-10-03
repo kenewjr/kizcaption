@@ -1567,10 +1567,11 @@ class ControlPanel:
                 self.root.after(0, self._update_model_lang_hints)
             except Exception as e:
                 spin_state["active"] = False
-                def on_err():
+                err_msg = str(e)
+                def on_err(msg=err_msg):
                     self.download_pbar.stop()
                     self.download_pbar.configure(mode="determinate", value=0)
-                    self.dl_status_var.set(f"❌ Gagal mengunduh: {e}")
+                    self.dl_status_var.set(f"❌ Gagal mengunduh: {msg}")
                     self.dl_speed_var.set("Terputus")
                     self.dl_size_var.set("")
                     self.dl_eta_var.set("")
