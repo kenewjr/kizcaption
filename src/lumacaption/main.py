@@ -82,6 +82,14 @@ def ensure_workspace(directory: Path) -> list[str]:
     config_file = directory / "config.json"
     if not config_file.exists():
         ConfigStore(config_file).save(AppConfig())
+    try:
+        from lumacaption.model_manager import detect_and_link_models
+        adopted = detect_and_link_models(directory)
+        if adopted:
+            names = ", ".join(m["key"] for m in adopted)
+            warnings.append(f"Model AI terdeteksi & dipulihkan dari instalasi sebelumnya: {names}")
+    except Exception as exc:
+        logging.getLogger("lumacaption").warning(f"Gagal deteksi model otomatis: {exc}")
     return warnings
 
 

@@ -43,6 +43,7 @@ A sleek, categorized Tkinter desktop dashboard:
   - Automated hardware inspection (detected GPU, free VRAM, total RAM, CPU thread count).
   - VRAM/RAM safety checks and disk size requirements for each model.
   - Background model download manager with animated progress, download speed, and ETA indicators.
+  - **Zero Re-download Reinstall Detection**: Central persistent cache (`%LOCALAPPDATA%/KizCaption/models`), Hugging Face cache detection, and 1-Click "Scan Previous Models" button to detect and link existing models automatically across updates or reinstalls.
 - **Tab 5 — OBS Setup**:
   - Ready-to-copy Browser Source URLs for Slot 1, Slot 2, Slot 3, and All-in-One Multi-Language modes.
   - One-click "Copy URL" and "Open in Browser" buttons with real-time client connection diagnostics.

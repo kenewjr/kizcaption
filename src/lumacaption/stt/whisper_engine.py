@@ -150,7 +150,7 @@ class WhisperEngine:
 
         def complete(path: str) -> bool:
             root = Path(path)
-            required = ("model.bin", "config.json", "tokenizer.json")
+            required = ("model.bin", "config.json")
             return all((root / name).is_file() for name in required) and any(root.glob("vocabulary.*"))
 
         # 1. Direct path check if user passed a local folder
@@ -158,12 +158,18 @@ class WhisperEngine:
         if direct_path.is_dir() and complete(str(direct_path)):
             return str(direct_path.resolve())
 
-        # 2. Check local cache via model_manager inspect_model
+        # 2. Check local cache via model_manager inspect_model & candidate discovery
         try:
-            from lumacaption.model_manager import inspect_model
+            from lumacaption.model_manager import inspect_model, find_model_locally, adopt_model
             state, local_path = inspect_model(self.model_size, Path(self.model_cache))
             if state == "Tersedia lokal" and local_path is not None and complete(str(local_path)):
                 return str(local_path.resolve())
+            alt_state, alt_path, _ = find_model_locally(self.model_size)
+            if alt_state == "Tersedia lokal" and alt_path is not None:
+                adopt_model(self.model_size, alt_path, Path(self.model_cache))
+                state, local_path = inspect_model(self.model_size, Path(self.model_cache))
+                if state == "Tersedia lokal" and local_path is not None and complete(str(local_path)):
+                    return str(local_path.resolve())
         except Exception:
             pass
 

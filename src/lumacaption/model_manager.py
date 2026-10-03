@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import threading
 import time
 
@@ -55,11 +56,249 @@ def inspect_model(key: str, cache: Path) -> tuple[str, Path | None]:
         revision = ref.read_text('utf-8').strip()
     # Do not accept path traversal from a malformed ref file.
     if not revision or any(c not in '0123456789abcdef' for c in revision):
+        snaps_dir = repo / 'snapshots'
+        if snaps_dir.is_dir():
+            for snap in snaps_dir.iterdir():
+                if snap.is_dir() and complete(snap, info.files):
+                    return 'Tersedia lokal', snap
         return ('Belum lengkap' if repo.exists() else 'Belum ada'), None
     snapshot = repo / 'snapshots' / revision
     if complete(snapshot, info.files):
         return 'Tersedia lokal', snapshot
+    snaps_dir = repo / 'snapshots'
+    if snaps_dir.is_dir():
+        for snap in snaps_dir.iterdir():
+            if snap.is_dir() and complete(snap, info.files):
+                return 'Tersedia lokal', snap
     return ('Belum lengkap' if repo.exists() else 'Belum ada'), None
+
+
+def get_persistent_models_dir() -> Path:
+    """Return central models directory that survives app reinstalls/updates."""
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        base = Path(local_app_data)
+    else:
+        base = Path.home() / ".cache"
+    path = base / "KizCaption" / "models"
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    return path
+
+
+def get_candidate_model_dirs(app_dir: Path | None = None) -> list[Path]:
+    """Return deduplicated list of directories where models might exist."""
+    candidates: list[Path] = []
+    seen: set[str] = set()
+
+    def add(p: Path | None) -> None:
+        if p is None:
+            return
+        try:
+            resolved = p.resolve()
+            k = str(resolved).lower()
+            if k not in seen and resolved.is_dir():
+                seen.add(k)
+                candidates.append(resolved)
+        except Exception:
+            pass
+
+    # 1. Local app models directory and subdirs
+    if app_dir is not None:
+        add(app_dir / "models")
+        add(app_dir / "models" / "whisper")
+        add(app_dir / "models" / "nllb-cache")
+        add(app_dir / "models" / "dtln")
+
+    # 2. Central persistent KizCaption cache
+    persistent = get_persistent_models_dir()
+    add(persistent)
+    add(persistent / "whisper")
+    add(persistent / "nllb-cache")
+    add(persistent / "dtln")
+
+    # 3. Global Hugging Face Hub cache
+    hf_home = os.environ.get("HF_HOME")
+    if hf_home:
+        add(Path(hf_home) / "hub")
+    add(Path.home() / ".cache" / "huggingface" / "hub")
+
+    # 4. Sibling folders (e.g. older extracted releases or install directories)
+    if app_dir is not None:
+        try:
+            parent = app_dir.resolve().parent
+            for item in parent.iterdir():
+                if item.is_dir() and item != app_dir.resolve():
+                    nl = item.name.lower()
+                    if "kizcaption" in nl or "lumacaption" in nl or "plugin" in nl:
+                        add(item / "models")
+                        add(item / "models" / "whisper")
+                        add(item / "models" / "nllb-cache")
+                        add(item / "models" / "dtln")
+        except Exception:
+            pass
+
+    # 5. User Downloads folder for KizCaption releases
+    try:
+        downloads = Path.home() / "Downloads"
+        if downloads.is_dir():
+            for item in downloads.iterdir():
+                if item.is_dir() and "kizcaption" in item.name.lower():
+                    add(item / "models")
+                    add(item / "models" / "whisper")
+                    add(item / "models" / "nllb-cache")
+    except Exception:
+        pass
+
+    return candidates
+
+
+def link_model_dir(src: Path, dst: Path) -> bool:
+    """Create directory junction on Windows, symlink on Unix, or copy fallback."""
+    try:
+        if dst.exists():
+            return True
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        src_res = src.resolve()
+        dst_res = dst.resolve()
+        try:
+            os.symlink(src_res, dst_res, target_is_directory=True)
+            if dst.exists():
+                return True
+        except (OSError, NotImplementedError):
+            pass
+        if sys.platform == "win32":
+            res = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", os.fspath(dst_res), os.fspath(src_res)],
+                capture_output=True,
+                text=True,
+            )
+            if dst.exists():
+                return True
+        try:
+            shutil.copytree(src_res, dst_res, dirs_exist_ok=True)
+            return dst.exists()
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return False
+
+
+def find_model_locally(key: str, app_dir: Path | None = None, search_dirs: list[Path] | None = None) -> tuple[str, Path | None, str]:
+    """Search for model across candidate cache and previous install directories."""
+    info = CATALOG.get(key)
+    if info is None:
+        return 'Belum ada', None, ''
+
+    dirs = search_dirs if search_dirs is not None else get_candidate_model_dirs(app_dir)
+
+    for d in dirs:
+        if not d.is_dir():
+            continue
+        if key == 'silero':
+            cand = d / 'silero_vad.onnx'
+            if cand.is_file() and cand.stat().st_size > 1_000_000:
+                return 'Tersedia lokal', d, str(d)
+            if (d / 'models' / 'silero_vad.onnx').is_file():
+                return 'Tersedia lokal', d / 'models', str(d / 'models')
+        elif key == 'dtln':
+            if complete(d, info.files):
+                return 'Tersedia lokal', d, str(d)
+            if (d / 'dtln').is_dir() and complete(d / 'dtln', info.files):
+                return 'Tersedia lokal', d / 'dtln', str(d / 'dtln')
+        else:
+            repo_folder_name = 'models--' + info.repo.replace('/', '--')
+            possible_repos = [
+                d / repo_folder_name,
+                d / 'whisper' / repo_folder_name,
+                d / 'nllb-cache' / repo_folder_name,
+            ]
+            for repo in possible_repos:
+                if repo.is_dir():
+                    state, snap = inspect_model(key, repo.parent)
+                    if state == 'Tersedia lokal' and snap is not None:
+                        return 'Tersedia lokal', repo, str(d)
+            direct_candidates = [
+                d / key,
+                d / info.repo.split('/')[-1],
+            ]
+            for dc in direct_candidates:
+                if dc.is_dir() and complete(dc, info.files):
+                    return 'Tersedia lokal', dc, str(d)
+
+    return 'Belum ada', None, ''
+
+
+def adopt_model(key: str, source: Path, target_cache: Path) -> bool:
+    """Link or copy an existing model from source into target_cache."""
+    try:
+        info = CATALOG.get(key)
+        if info is None:
+            return False
+        target_cache.mkdir(parents=True, exist_ok=True)
+        if key == 'silero':
+            src_file = source / 'silero_vad.onnx' if source.is_dir() else source
+            dst_file = target_cache / 'silero_vad.onnx'
+            if src_file.is_file() and not dst_file.exists():
+                try:
+                    os.link(src_file, dst_file)
+                    return True
+                except (OSError, NotImplementedError):
+                    shutil.copyfile(src_file, dst_file)
+                    return True
+            return dst_file.exists()
+        elif key == 'dtln':
+            src_dir = source if complete(source, info.files) else (source / 'dtln')
+            if src_dir.is_dir():
+                return link_model_dir(src_dir, target_cache)
+        else:
+            if source.name.startswith('models--'):
+                repo_dir = source
+            elif source.parent.name == 'snapshots':
+                repo_dir = source.parent.parent
+            else:
+                return link_model_dir(source, target_cache / source.name)
+            dst_repo = target_cache / repo_dir.name
+            return link_model_dir(repo_dir, dst_repo)
+    except Exception:
+        pass
+    return False
+
+
+def detect_and_link_models(target_app_dir: Path, custom_source_dir: Path | None = None) -> list[dict]:
+    """Scan candidate directories or a custom folder and adopt all found models into target_app_dir."""
+    candidates = [custom_source_dir] if custom_source_dir else get_candidate_model_dirs(target_app_dir)
+    adopted: list[dict] = []
+    persistent_dir = get_persistent_models_dir()
+
+    for key, info in CATALOG.items():
+        cache = cache_for(target_app_dir, key)
+        state, existing = inspect_model(key, cache)
+        if state == "Tersedia lokal":
+            if existing is not None:
+                persistent_cache = cache_for(persistent_dir, key)
+                adopt_model(key, existing, persistent_cache)
+            continue
+
+        found_state, found_source, loc = find_model_locally(key, target_app_dir, search_dirs=candidates)
+        if found_state == "Tersedia lokal" and found_source is not None:
+            ok = adopt_model(key, found_source, cache)
+            if ok:
+                new_state, _ = inspect_model(key, cache)
+                if new_state == "Tersedia lokal":
+                    adopted.append({
+                        "key": key,
+                        "name": info.repo or key,
+                        "location": loc,
+                        "path": str(found_source),
+                    })
+                    persistent_cache = cache_for(persistent_dir, key)
+                    adopt_model(key, found_source, persistent_cache)
+
+    return adopted
 
 
 def cache_for(directory: Path, key: str) -> Path:
@@ -143,6 +382,11 @@ def ensure_model(key: str, cache: Path, on_status=None) -> Path:
             p2 = Path(hf_hub_download('niobures/DTLN', 'models/DTLN/onnx/model_2.onnx'))
             shutil.copyfile(p2, cache / 'model_2.onnx')
             emit('Tersedia lokal')
+            try:
+                persistent_cache = cache_for(get_persistent_models_dir(), key)
+                adopt_model(key, cache, persistent_cache)
+            except Exception:
+                pass
             return cache
         cache.mkdir(parents=True, exist_ok=True)
         free = shutil.disk_usage(cache).free
@@ -235,6 +479,11 @@ def ensure_model(key: str, cache: Path, on_status=None) -> Path:
             if not complete(path, info.files):
                 raise RuntimeError(f'Cache {key} belum lengkap')
             emit('Tersedia lokal')
+            try:
+                persistent_cache = cache_for(get_persistent_models_dir(), key)
+                adopt_model(key, path, persistent_cache)
+            except Exception:
+                pass
             return path
         except Exception as exc:
             emit('Gagal', detail=str(exc))

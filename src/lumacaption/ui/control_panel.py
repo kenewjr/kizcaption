@@ -27,7 +27,7 @@ from lumacaption.output.styles import ANCHORS, CaptionStyle
 from lumacaption.pipeline import CaptionPipeline, PipelineEvent
 from lumacaption.model_manager import (
     CATALOG, inspect_model, cache_for, ensure_model, resource_details, hardware_info, evaluate_vram_safety,
-    model_resource_table_rows,
+    model_resource_table_rows, detect_and_link_models, find_model_locally, adopt_model,
 )
 from lumacaption.ui.caption_editor import CaptionEditor
 from lumacaption.vocabulary import VocabularyManager
@@ -1124,7 +1124,10 @@ class ControlPanel:
         self.download_btn.pack(side="right", padx=(6, 0))
 
         self.apply_model_btn = ttk.Button(ctrl_row, text=self.t("btn_use_ai_model"), command=self._apply_selected_model)
-        self.apply_model_btn.pack(side="right")
+        self.apply_model_btn.pack(side="right", padx=(6, 0))
+
+        self.scan_models_btn = ttk.Button(ctrl_row, text=self.t("btn_scan_models"), command=self._scan_and_detect_models)
+        self.scan_models_btn.pack(side="right")
 
         self.model_progress_var = tk.StringVar()
 
@@ -1410,6 +1413,11 @@ class ControlPanel:
         key = self.model_card_key.get()
         cache = cache_for(self.app_dir, key)
         state, _ = inspect_model(key, cache)
+        if state != "Tersedia lokal":
+            alt_state, alt_source, _ = find_model_locally(key, self.app_dir)
+            if alt_state == "Tersedia lokal" and alt_source is not None:
+                adopt_model(key, alt_source, cache)
+                state, _ = inspect_model(key, cache)
         lang = getattr(self.config, "ui_language", "id")
         is_en = (lang == "en")
         state_display = {
@@ -1495,6 +1503,47 @@ class ControlPanel:
             self.config_store.save(self.config)
         except Exception as exc:
             self._set_activity(f"Gagal menyimpan model: {exc}", "error")
+
+    def _scan_and_detect_models(self) -> None:
+        from tkinter import filedialog
+        adopted = detect_and_link_models(self.app_dir)
+        if adopted:
+            msg_items = "\n".join(f"• {m['key']} ({m['name']})" for m in adopted)
+            self._set_activity(f"Ditemukan {len(adopted)} model dan siap digunakan.", "ok")
+            messagebox.showinfo(
+                self.t("scan_models_title"),
+                self.t("scan_models_found", count=len(adopted), models=msg_items),
+                parent=self.root,
+            )
+            self._on_model_card_selected()
+            self._refresh_dtln_status()
+            return
+
+        ask_manual = messagebox.askyesno(
+            self.t("scan_models_title"),
+            self.t("scan_models_prompt_manual"),
+            parent=self.root,
+        )
+        if ask_manual:
+            chosen = filedialog.askdirectory(title=self.t("scan_models_title"), parent=self.root)
+            if chosen:
+                manual_adopted = detect_and_link_models(self.app_dir, custom_source_dir=Path(chosen))
+                if manual_adopted:
+                    msg_items = "\n".join(f"• {m['key']} ({m['name']})" for m in manual_adopted)
+                    self._set_activity(f"Berhasil mengimpor {len(manual_adopted)} model dari {chosen}.", "ok")
+                    messagebox.showinfo(
+                        self.t("scan_models_title"),
+                        self.t("scan_models_found", count=len(manual_adopted), models=msg_items),
+                        parent=self.root,
+                    )
+                    self._on_model_card_selected()
+                    self._refresh_dtln_status()
+                else:
+                    messagebox.showinfo(
+                        self.t("scan_models_title"),
+                        self.t("scan_models_none_found"),
+                        parent=self.root,
+                    )
 
     def _download_selected_model(self) -> None:
         key = self.model_card_key.get()

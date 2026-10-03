@@ -425,6 +425,26 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "Unduh / Siapkan Model AI",
         "en": "Download / Setup AI Model",
     },
+    "btn_scan_models": {
+        "id": "🔍 Pindai Model Lama",
+        "en": "🔍 Scan Previous Models",
+    },
+    "scan_models_title": {
+        "id": "Deteksi & Pemulihan Model AI",
+        "en": "AI Model Detection & Recovery",
+    },
+    "scan_models_found": {
+        "id": "Berhasil mendeteksi {count} model dari instalasi sebelumnya:\n\n{models}\n\nModel langsung siap digunakan tanpa perlu download ulang!",
+        "en": "Successfully detected {count} models from previous installation:\n\n{models}\n\nReady to use immediately without re-downloading!",
+    },
+    "scan_models_prompt_manual": {
+        "id": "Tidak ditemukan model baru di folder standar (AppData / Hugging Face).\n\nApakah Anda ingin memilih folder secara manual (misal folder KizCaption lama atau drive lain)?",
+        "en": "No new models found in standard paths (AppData / Hugging Face).\n\nWould you like to select a folder manually (e.g. older KizCaption folder or external drive)?",
+    },
+    "scan_models_none_found": {
+        "id": "Tidak ditemukan model AI yang cocok di folder tersebut.",
+        "en": "No matching AI models found in the selected folder.",
+    },
     "btn_dl_dtln": {
         "id": "Unduh Komponen DTLN (~3.96 MB)",
         "en": "Download DTLN Component (~3.96 MB)",

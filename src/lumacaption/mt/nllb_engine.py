@@ -335,12 +335,18 @@ class NllbEngine:
 
         required = ("model.bin", "config.json", "shared_vocabulary.json", "sentencepiece.bpe.model")
 
-        # 2. Check local cache via model_manager inspect_model
+        # 2. Check local cache via model_manager inspect_model & candidate discovery
         try:
-            from lumacaption.model_manager import inspect_model
+            from lumacaption.model_manager import inspect_model, find_model_locally, adopt_model
             state, local_path = inspect_model(self.model_id_or_path, self.cache_dir)
             if state == "Tersedia lokal" and local_path is not None and all((local_path / name).is_file() for name in required):
                 return local_path.resolve()
+            alt_state, alt_path, _ = find_model_locally(self.model_id_or_path)
+            if alt_state == "Tersedia lokal" and alt_path is not None:
+                adopt_model(self.model_id_or_path, alt_path, self.cache_dir)
+                state, local_path = inspect_model(self.model_id_or_path, self.cache_dir)
+                if state == "Tersedia lokal" and local_path is not None and all((local_path / name).is_file() for name in required):
+                    return local_path.resolve()
         except Exception:
             pass
 
