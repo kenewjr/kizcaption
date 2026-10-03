@@ -93,6 +93,15 @@ GREEN = PALETTES["dark"]["green"]
 AMBER = PALETTES["dark"]["amber"]
 RED = PALETTES["dark"]["red"]
 UNUSED_TARGET = "Tidak digunakan"
+UNUSED_TARGET_CHOICES = {
+    "tidak digunakan",
+    "not used",
+    "unused",
+}
+
+
+def is_unused_target(name: str) -> bool:
+    return name.strip().casefold() in UNUSED_TARGET_CHOICES
 
 
 def selected_targets(choices: list[str]) -> list[TargetConfig]:
@@ -101,7 +110,7 @@ def selected_targets(choices: list[str]) -> list[TargetConfig]:
     targets = []
     for slot_idx, choice in enumerate(choices, 1):
         name = choice.strip()
-        if name == UNUSED_TARGET:
+        if is_unused_target(name):
             continue
         if name not in TARGET_CHOICES:
             raise ValueError("Pilih bahasa dari daftar atau 'Tidak digunakan'")
@@ -115,6 +124,10 @@ class FilterCombobox(ttk.Combobox):
         super().__init__(master, values=choices, **kwargs)
         self.bind("<KeyRelease>", self._filter, add=True)
         self.bind("<FocusOut>", lambda _event: self.configure(values=self._choices), add=True)
+
+    def update_choices(self, choices: tuple[str, ...]) -> None:
+        self._choices = choices
+        self.configure(values=choices)
 
     def _filter(self, event) -> None:
         if event.keysym in {"Up", "Down", "Return", "Escape", "Tab"}:
@@ -373,6 +386,12 @@ class ControlPanel:
         if lang not in SUPPORTED_LANGUAGES:
             return
         self.config.ui_language = lang
+        if hasattr(self, "target_vars"):
+            current_raw = [v.get().strip() for v in self.target_vars]
+            try:
+                self.config.targets = selected_targets(current_raw)
+            except Exception:
+                pass
         try:
             self.config_store.save(self.config)
         except Exception:
@@ -678,9 +697,11 @@ class ControlPanel:
         # Targets in left card
         lang_card = self._card(left, self.t("card_caption_lang"), self.t("card_caption_lang_sub"))
         self.target_boxes: list[ttk.Combobox] = []
+        unused_choice = self.t("target_unused")
         for index, variable in enumerate(self.target_vars, 1):
             row = self._field_row(lang_card, f"Target {index}")
-            box = FilterCombobox(row, choices=TARGET_CHOICES, textvariable=variable)
+            choices = TARGET_CHOICES if index == 1 else (unused_choice,) + TARGET_CHOICES
+            box = FilterCombobox(row, choices=choices, textvariable=variable)
             box.grid(row=0, column=1, sticky="ew")
             self._track(box, "readonly")
             self.target_boxes.append(box)
@@ -1813,7 +1834,10 @@ class ControlPanel:
         try:
             self.source_var.set(source_display_name(config.source_language))
             for index, variable in enumerate(self.target_vars):
-                variable.set(config.targets[index].language if index < len(config.targets) else UNUSED_TARGET)
+                if index < len(config.targets) and not is_unused_target(config.targets[index].language):
+                    variable.set(config.targets[index].language)
+                else:
+                    variable.set(self.t("target_unused"))
             self.model_var.set(config.whisper_model)
             self.beam_var.set(str(config.whisper_beam_size))
             self.hotwords_var.set(config.whisper_hotwords)

@@ -104,6 +104,8 @@ class CoreTests(unittest.TestCase):
     def test_optional_targets_are_explicit(self):
         for choices, expected in (
             (["English", UNUSED_TARGET, UNUSED_TARGET], ["English"]),
+            (["English", "Not used", "Not used"], ["English"]),
+            (["English", "not used", "Japanese"], ["English", "Japanese"]),
             (["English", UNUSED_TARGET, "Japanese"], ["English", "Japanese"]),
             (["English", "Japanese", "Korean"], ["English", "Japanese", "Korean"]),
         ):

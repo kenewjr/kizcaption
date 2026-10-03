@@ -193,6 +193,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "Terjemahan 3 (Opsional)",
         "en": "Translation 3 (Optional)",
     },
+    "target_unused": {
+        "id": "Tidak digunakan",
+        "en": "Not used",
+    },
     "field_font_family": {
         "id": "Jenis Huruf",
         "en": "Font Family",

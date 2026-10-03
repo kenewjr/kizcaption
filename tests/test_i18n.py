@@ -83,6 +83,8 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
             self.assertIn("English", panel.lang_btn.cget("text"))
             self.assertIn("MULAI CAPTION", panel.start_button.cget("text"))
             self.assertIn("Simpan", panel.save_button.cget("text"))
+            self.assertEqual(panel.target_vars[1].get(), "Tidak digunakan")
+            self.assertIn("Tidak digunakan", panel.target_boxes[1]["values"])
             self.assertTrue(panel.left.winfo_ismapped())
             self.assertTrue(panel.right.winfo_ismapped())
 
@@ -93,6 +95,13 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
             self.assertIn("Bahasa Indonesia", panel.lang_btn.cget("text"))
             self.assertIn("START CAPTION", panel.start_button.cget("text"))
             self.assertIn("Save", panel.save_button.cget("text"))
+            self.assertEqual(panel.target_vars[1].get(), "Not used")
+            self.assertIn("Not used", panel.target_boxes[1]["values"])
+
+            # Test target re-selection: choose a language, then can pick 'Not used' again
+            panel.target_vars[1].set("Japanese")
+            self.assertIn("Not used", panel.target_boxes[1]["values"])
+            panel.target_vars[1].set("Not used")
 
             # Tab 1 widgets MUST remain mapped and visible (not blank canvas!)
             self.assertTrue(panel.left.winfo_ismapped())
