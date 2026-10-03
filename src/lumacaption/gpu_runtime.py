@@ -43,3 +43,7 @@ def configure_cuda_runtime() -> None:
                         except (OSError, ValueError):
                             pass
                         os.environ["PATH"] = str(directory) + os.pathsep + os.environ.get("PATH", "")
+
+        # Limit CTranslate2 CUB caching allocator to 200 MiB cache max (prevents GPU memory hoarding)
+        if "CT2_CUDA_CACHING_ALLOCATOR_CONFIG" not in os.environ:
+            os.environ["CT2_CUDA_CACHING_ALLOCATOR_CONFIG"] = "4,3,12,209715200"

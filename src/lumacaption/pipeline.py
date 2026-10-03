@@ -4,19 +4,22 @@ import asyncio
 from collections.abc import Callable
 import ctypes
 from dataclasses import dataclass
+import gc
 from pathlib import Path
 import queue
 import sys
 import threading
 import time
 
-from audio.capture import MicrophoneCapture
-from audio.vad import SileroOnnx, UtteranceTooLongError, VadSegmenter
-from config import AppConfig
-from languages import source_nllb_code, source_whisper_code
-from mt.nllb_engine import NllbEngine
-from output.overlay_server import OverlayPublisher, OverlayServer
-from stt.whisper_engine import WhisperEngine
+from lumacaption.audio.capture import MicrophoneCapture
+from lumacaption.audio.vad import SileroOnnx, UtteranceTooLongError, VadSegmenter
+from lumacaption.config import AppConfig
+from lumacaption.languages import source_nllb_code, source_whisper_code, target_nllb_code
+from lumacaption.censor import censor_text
+from lumacaption.mt.nllb_engine import NllbEngine
+from lumacaption.output.overlay_server import OverlayPublisher, OverlayServer
+from lumacaption.stt.whisper_engine import WhisperEngine
+from lumacaption.vocabulary import VocabularyManager
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +44,7 @@ class CaptionPipeline:
         mt_factory=NllbEngine,
         output_factory=None,
         overlay_service=None,
+        terminology_store=None,
     ) -> None:
         self.config = config
         self.app_dir = Path(app_dir)
@@ -51,6 +55,7 @@ class CaptionPipeline:
         self.mt_factory = mt_factory
         self.output_factory = output_factory
         self.overlay_service = overlay_service
+        self.vocab_manager = VocabularyManager(self.app_dir)
         self._thread: threading.Thread | None = None
         self._worker: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -142,7 +147,25 @@ class CaptionPipeline:
             if not self._stop_requested.is_set():
                 self._emit("audio_level", "Audio level", {"rms": rms, "peak": peak})
 
-        capture = self.capture_factory(self.config.microphone_device, warning, audio_level)
+        capture_kwargs = {}
+        if hasattr(self.config, "audio_channel"):
+            capture_kwargs["channel"] = self.config.audio_channel
+        if hasattr(self.config, "audio_gain_db"):
+            capture_kwargs["gain_db"] = self.config.audio_gain_db
+        if hasattr(self.config, "audio_clarity"):
+            capture_kwargs["clarity"] = self.config.audio_clarity
+        if hasattr(self.config, "denoise_engine"):
+            capture_kwargs["denoise_engine"] = self.config.denoise_engine
+        capture_kwargs["model_dir"] = self.app_dir / "models" / "dtln"
+        try:
+            capture = self.capture_factory(
+                self.config.microphone_device,
+                warning,
+                audio_level,
+                **capture_kwargs,
+            )
+        except TypeError:
+            capture = self.capture_factory(self.config.microphone_device, warning, audio_level)
         self._capture = capture
         if self.vad_factory:
             vad = self.vad_factory()
@@ -192,7 +215,7 @@ class CaptionPipeline:
                     })
                     self._emit(
                         "published",
-                        "Caption tampil di Browser Source",
+                        "Caption terkirim ke server overlay",
                         dict(translations),
                     )
             except Exception as exc:
@@ -201,6 +224,9 @@ class CaptionPipeline:
 
         def schedule_publish(translations: dict[str, str], metrics: dict) -> None:
             if self._stop_requested.is_set() or not self._loop or self._loop.is_closed():
+                return
+            if len(publish_tasks) >= 5:
+                warning("Antrean output overlay penuh, membuang pembaruan lama")
                 return
             task = asyncio.create_task(deliver(translations, metrics), name="overlay-publish")
             publish_tasks.add(task)
@@ -212,25 +238,66 @@ class CaptionPipeline:
             try:
                 if self._stop_requested.is_set():
                     return
-                self._emit("preparing", "Menyiapkan Whisper dan memeriksa inference…")
-                stt = self.stt_factory(
-                    self.config.whisper_model,
-                    self.config.stt_device,
-                    self.app_dir / "models" / "whisper",
-                    warning,
-                    beam_size=self.config.whisper_beam_size,
-                    hotwords=self.config.whisper_hotwords,
+
+                combined_hotwords = self.vocab_manager.get_hotwords(
+                    user_hotwords=self.config.whisper_hotwords or "",
                 )
+
+                self._emit("preparing", "Menyiapkan Whisper dan memeriksa inference…")
+                stt_kwargs = {
+                    "beam_size": self.config.whisper_beam_size,
+                    "hotwords": combined_hotwords,
+                }
+                if hasattr(self.config, "stt_compute_type"):
+                    stt_kwargs["compute_type"] = self.config.stt_compute_type
+                if hasattr(self.config, "cpu_threads"):
+                    stt_kwargs["cpu_threads"] = self.config.cpu_threads
+                try:
+                    stt = self.stt_factory(
+                        self.config.whisper_model,
+                        self.config.stt_device,
+                        self.app_dir / "models" / "whisper",
+                        warning,
+                        **stt_kwargs,
+                    )
+                except TypeError:
+                    # Fallback for mock/test factories accepting fewer kwargs
+                    stt = self.stt_factory(
+                        self.config.whisper_model,
+                        self.config.stt_device,
+                        self.app_dir / "models" / "whisper",
+                        warning,
+                        beam_size=self.config.whisper_beam_size,
+                        hotwords=combined_hotwords,
+                    )
                 stt.prepare(source_whisper_code(self.config.source_language))
                 if self._stop_requested.is_set():
                     return
                 self._emit("preparing", "Menyiapkan NLLB dan memeriksa terjemahan…")
-                mt = self.mt_factory(
-                    self.config.nllb_model,
-                    self.config.mt_device,
-                    self.app_dir / "models" / "nllb-cache",
-                    warning,
-                )
+                mt_kwargs = {}
+                if hasattr(self.config, "mt_compute_type"):
+                    mt_kwargs["compute_type"] = self.config.mt_compute_type
+                if hasattr(self.config, "mt_beam_size"):
+                    mt_kwargs["beam_size"] = self.config.mt_beam_size
+                if hasattr(self.config, "cpu_threads"):
+                    mt_kwargs["cpu_threads"] = self.config.cpu_threads
+                if hasattr(self.config, "slang_normalization"):
+                    mt_kwargs["normalize_slang"] = self.config.slang_normalization
+                try:
+                    mt = self.mt_factory(
+                        self.config.nllb_model,
+                        self.config.mt_device,
+                        self.app_dir / "models" / "nllb-cache",
+                        warning,
+                        **mt_kwargs,
+                    )
+                except TypeError:
+                    mt = self.mt_factory(
+                        self.config.nllb_model,
+                        self.config.mt_device,
+                        self.app_dir / "models" / "nllb-cache",
+                        warning,
+                    )
                 mt.prepare(target_names)
                 if self._stop_requested.is_set():
                     return
@@ -240,10 +307,15 @@ class CaptionPipeline:
                     "mt_device": mt.active_device,
                 })
                 self._loop.call_soon_threadsafe(ready.set)
+                processed_count = 0
+                last_gc_count = 0
                 while not self._stop_requested.is_set():
                     try:
                         item = utterances.get(timeout=0.25)
                     except queue.Empty:
+                        if processed_count > last_gc_count and (processed_count - last_gc_count) >= 5:
+                            gc.collect()
+                            last_gc_count = processed_count
                         continue
                     try:
                         if item is _INFERENCE_STOP or self._stop_requested.is_set():
@@ -261,21 +333,54 @@ class CaptionPipeline:
                         if not transcript.text:
                             self._emit("listening", "Tidak ada ucapan yang dikenali")
                             continue
+                        newly_learned = self.vocab_manager.observe(transcript.text)
+                        if newly_learned and hasattr(stt, "update_hotwords"):
+                            updated_hotwords = self.vocab_manager.get_hotwords(
+                                user_hotwords=self.config.whisper_hotwords or "",
+                            )
+                            stt.update_hotwords(updated_hotwords)
+                            self._emit("learning", f"Kosakata baru dipelajari: {', '.join(newly_learned)}", {
+                                "terms": newly_learned,
+                            })
+                        do_censor = getattr(self.config, "profanity_filter", False)
+                        display_text = censor_text(transcript.text, do_censor)
                         self._emit(
                             "transcript",
-                            transcript.text,
-                            {"language": transcript.language, "text": transcript.text},
+                            display_text,
+                            {"language": transcript.language, "text": display_text},
                         )
                         source_code = source_nllb_code(
                             self.config.source_language,
                             transcript.language,
                         )
+
+                        # Early passthrough delivery for same-language slots (e.g. native spoken transcript)
+                        # Eliminates waiting for other target languages to complete MT
+                        early_deliveries: dict[str, str] = {}
+                        for t_name in target_names:
+                            try:
+                                if target_nllb_code(t_name) == source_code:
+                                    early_deliveries[t_name] = display_text
+                            except Exception:
+                                pass
+                        if early_deliveries and len(target_names) > len(early_deliveries):
+                            loop = self._loop
+                            if loop and loop.is_running():
+                                loop.call_soon_threadsafe(schedule_publish, early_deliveries, {
+                                    "stt_ms": stt_ms, "mt_ms": 0.0, "queued_at": queued_at,
+                                    "stt_device": stt.active_device, "mt_device": "early_passthrough",
+                                })
+
                         self._emit("processing", "Menerjemahkan caption…")
                         mt_start = time.monotonic()
                         translations = mt.translate(transcript.text, source_code, target_names)
                         mt_ms = (time.monotonic() - mt_start) * 1000
                         if self._stop_requested.is_set():
                             return
+
+                        if do_censor:
+                            translations = {k: censor_text(v, True) for k, v in translations.items()}
+
                         self._emit("translations", "Translations ready", translations)
                         loop = self._loop
                         if loop and loop.is_running():
@@ -283,10 +388,23 @@ class CaptionPipeline:
                                 "stt_ms": stt_ms, "mt_ms": mt_ms, "queued_at": queued_at,
                                 "stt_device": stt.active_device, "mt_device": mt.active_device,
                             })
+                        processed_count += 1
+                        if processed_count - last_gc_count >= 20:
+                            gc.collect()
+                            last_gc_count = processed_count
                     except ValueError as exc:
                         if not self._stop_requested.is_set():
                             self._emit("error", str(exc))
                         self.request_stop()
+                    except Exception as exc:
+                        if self._stop_requested.is_set():
+                            return
+                        err_msg = str(exc)
+                        if "All Whisper fallbacks failed" in err_msg or "All NLLB fallbacks failed" in err_msg:
+                            self._emit("error", f"Fatal inference error: {err_msg}")
+                            self.request_stop()
+                        else:
+                            warning(f"Gagal memproses kalimat ({err_msg}); melanjutkan sesi streaming")
                     finally:
                         utterances.task_done()
             except Exception as exc:
@@ -300,6 +418,14 @@ class CaptionPipeline:
                             engine.close()
                         except Exception as exc:
                             self._emit("error", f"Model cleanup failed: {exc}")
+                try:
+                    import importlib
+                    torch_mod = importlib.import_module("torch")
+                    if getattr(getattr(torch_mod, "cuda", None), "is_available", lambda: False)():
+                        torch_mod.cuda.empty_cache()
+                except Exception:
+                    pass
+                gc.collect()
                 self._emit("inference_idle", "Mesin caption berhenti")
 
         async def capture_stage() -> None:
@@ -348,9 +474,17 @@ class CaptionPipeline:
                         try:
                             utterances.put_nowait((utterance, time.monotonic()))
                         except queue.Full:
-                            self._emit("error", "Mesin tertinggal: antrean penuh. Hentikan lalu gunakan model lebih cepat.")
-                            self.request_stop()
-                            return
+                            # Drop oldest pending utterance to keep pipeline real-time without stopping
+                            try:
+                                dropped = utterances.get_nowait()
+                                utterances.task_done()
+                            except queue.Empty:
+                                dropped = None
+                            try:
+                                utterances.put_nowait((utterance, time.monotonic()))
+                                self._emit("warning", "Antrean penuh: ucapan tertua dilewati untuk menjaga latensi real-time")
+                            except queue.Full:
+                                pass
                 except UtteranceTooLongError as exc:
                     self._emit("error", str(exc))
                     self.request_stop()
@@ -363,6 +497,8 @@ class CaptionPipeline:
                     delay = min(delay * 2, 8.0)
                 finally:
                     capture.stop()
+                    if hasattr(vad, "reset"):
+                        vad.reset()
 
         await output.start()
         self._worker = threading.Thread(

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>LumaCaption Browser Source</title>
+  <title>KizCaption Browser Source</title>
   <meta name="description" content="Transparent local live caption overlay for OBS Browser Source.">
   <style>
     :root {
@@ -14,45 +14,141 @@
       --caption-color: #ffffff;
       --outline-color: #806cff;
       --accent: 267 92% 72%;
+      --stage-gap: 8px;
     }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
     body {
-      display: grid; place-items: end center;
+      display: grid;
       padding: clamp(12px, 3vh, 36px) clamp(16px, 3vw, 48px);
+      width: 100%; height: 100%;
     }
-    main { display: grid; justify-items: center; width: 100%; }
 
-    #language-tag {
-      display: none;
-      z-index: 1; margin: 0 0 -6px; padding: 4px 10px; border: 1px solid hsl(var(--accent) / .45);
-      border-radius: 999px; color: hsl(var(--accent)); background: rgba(11, 13, 25, .9);
-      font-size: clamp(11px, 1.1vw, 14px); font-weight: 750; letter-spacing: .08em;
-      text-transform: uppercase; opacity: 0; transform: translateY(6px); transition: .2s ease;
+    body[data-anchor^="top"] { align-content: start; }
+    body[data-anchor^="center"] { align-content: center; }
+    body[data-anchor^="bottom"] { align-content: end; }
+    body[data-anchor$="left"] { justify-items: start; text-align: left; }
+    body[data-anchor$="center"] { justify-items: center; text-align: center; }
+    body[data-anchor$="right"] { justify-items: end; text-align: right; }
+
+    main {
+      display: grid;
+      justify-items: inherit;
+      width: 100%;
     }
-    .show-tag #language-tag { display: inline-block; }
 
     #subtitles {
       max-width: min(1600px, 100%); width: 100%;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: clamp(4px, 1vh, 10px);
+      gap: var(--stage-gap, clamp(4px, 1vh, 10px));
       font-size: clamp(14px, 3.8vw, var(--caption-size));
       opacity: 0; transform: translateY(14px) scale(.985);
       transition: opacity .2s ease, transform .28s cubic-bezier(.2,.8,.2,1);
     }
-    main.visible #subtitles, main.visible #language-tag { opacity: 1; transform: none; }
+    main.visible #subtitles { opacity: 1; transform: none; }
 
-    .subtitle-line {
-      display: block; width: 100%;
-      text-align: center; overflow-wrap: anywhere; text-wrap: balance;
-      font-family: var(--caption-font, "Segoe UI"), system-ui, sans-serif;
-      font-size: inherit;
-      font-weight: 800; line-height: 1.25;
-      color: var(--caption-color, #ffffff);
+    .caption-slot {
+      display: none;
+      width: 100%;
+    }
+    .caption-slot.visible {
+      display: block;
+    }
+    body.multi-line .caption-slot {
+      line-height: 0;
     }
 
-    /* THEME 1: VTuber / Anime Streamer Style (Transparent, Heavy Stroke & Glowing Outline) */
-    body.theme-vtuber .subtitle-line {
+    @keyframes lc-fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes lc-slide-in {
+      from { opacity: 0; transform: translateY(14px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes lc-pop-in {
+      0% { opacity: 0; transform: scale(0.90); }
+      70% { opacity: 1; transform: scale(1.02); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .caption-card {
+      display: inline-block;
+      max-width: var(--lc-max-w, 100%);
+      font-family: var(--lc-font, var(--caption-font, "Segoe UI")), system-ui, sans-serif;
+      font-size: var(--lc-size, inherit);
+      font-weight: var(--lc-weight, 800);
+      font-style: var(--lc-style, normal);
+      letter-spacing: var(--lc-spacing, 0px);
+      line-height: var(--lc-line-h, 1.25);
+      color: var(--lc-color, var(--caption-color, #ffffff));
+      text-align: var(--lc-text-align, center);
+      overflow-wrap: anywhere;
+      text-wrap: balance;
+      border-radius: var(--lc-rad, 0px);
+      padding: var(--lc-pad-y, 0px) var(--lc-pad-x, 0px);
+      margin: var(--lc-mar-y, 0px) var(--lc-mar-x, 0px);
+      border: var(--lc-border-w, 0px) solid var(--lc-border-c, transparent);
+      position: relative;
+      transform: translateZ(0);
+      will-change: transform, opacity;
+      transition: opacity 0.16s ease;
+    }
+    .caption-card.anim-fade {
+      animation: lc-fade-in var(--lc-anim-duration, 180ms) cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .caption-card.anim-slide {
+      animation: lc-slide-in var(--lc-anim-duration, 220ms) cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .caption-card.anim-pop {
+      animation: lc-pop-in var(--lc-anim-duration, 200ms) cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    body.multi-line .caption-card {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      margin-block: 0 !important;
+      vertical-align: top;
+    }
+    .caption-card.bg-transparent {
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+
+    .caption-text {
+      display: inline;
+      -webkit-text-stroke: var(--lc-stroke-w, 2px) var(--lc-stroke-c, var(--outline-color, #806cff));
+      text-shadow: var(--lc-shadow-x, 0px) var(--lc-shadow-y, 2px) var(--lc-shadow-b, 4px) var(--lc-shadow-c, rgba(0,0,0,0.65));
+      paint-order: stroke fill;
+    }
+
+    .caption-label {
+      display: none;
+      font-size: 0.35em;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      margin-bottom: 4px;
+      border-radius: 999px;
+      background: rgba(11, 13, 25, 0.85);
+      color: var(--lc-accent, #806cff);
+      border: 1px solid var(--lc-accent, #806cff);
+      width: fit-content;
+    }
+    .has-label .caption-label { display: inline-block; }
+
+    .caption-card.decor-accent {
+      border-left: 5px solid var(--lc-accent, #00d4ff) !important;
+    }
+    .caption-card.decor-bubble {
+      box-shadow: 4px 4px 0px #000000 !important;
+    }
+    .caption-card.decor-badge {
+      box-shadow: 0 4px 20px var(--lc-accent, #6366f1) !important;
+    }
+
+    /* VTuber theme stroke / shadows */
+    body.theme-vtuber .caption-text {
       -webkit-text-stroke: max(2.5px, calc(var(--caption-size) * 0.055)) var(--line-outline, var(--outline-color, #806cff));
       text-shadow:
         0 0 14px var(--line-outline, var(--outline-color, #806cff)),
@@ -65,18 +161,6 @@
       paint-order: stroke fill;
     }
 
-    /* Coordinated pastel accent strokes for multi-line VTuber subtitles */
-    body.theme-vtuber.multi-line .subtitle-line:nth-child(1) {
-      --line-outline: var(--outline-color, #806cff);
-    }
-    body.theme-vtuber.multi-line .subtitle-line:nth-child(2) {
-      --line-outline: var(--outline-color, #a855f7);
-    }
-    body.theme-vtuber.multi-line .subtitle-line:nth-child(3) {
-      --line-outline: #ec4899;
-    }
-
-    /* THEME 2: Card / Dark Box Style */
     body.theme-card #subtitles {
       padding: .75em 1.2em; border: 1px solid rgba(255,255,255,.18);
       border-radius: clamp(14px, 2vw, 24px);
@@ -84,7 +168,7 @@
       box-shadow: 0 22px 70px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.12);
       backdrop-filter: blur(18px);
     }
-    body.theme-card .subtitle-line {
+    body.theme-card .caption-text {
       text-shadow: 0 2px 12px rgba(0,0,0,.8);
     }
 
@@ -95,19 +179,39 @@
       transition: .2s ease;
     }
     #connection.visible { opacity: 1; transform: none; }
-    @media (prefers-reduced-motion: reduce) { #subtitles, #language-tag, #connection { transition: none; } }
+    @media (prefers-reduced-motion: reduce) { #subtitles, #connection { transition: none !important; } }
   </style>
 </head>
-<body class="theme-vtuber">
+<body class="theme-vtuber" data-anchor="bottom-center">
   <main id="stage" aria-live="polite" aria-atomic="true">
-    <div id="language-tag"></div>
-    <div id="subtitles"></div>
+    <div id="subtitles">
+      <div id="caption-1" class="caption-slot" data-slot="1">
+        <div class="caption-card">
+          <div class="caption-label"></div>
+          <div class="caption-text"></div>
+        </div>
+      </div>
+      <div id="caption-2" class="caption-slot" data-slot="2">
+        <div class="caption-card">
+          <div class="caption-label"></div>
+          <div class="caption-text"></div>
+        </div>
+      </div>
+      <div id="caption-3" class="caption-slot" data-slot="3">
+        <div class="caption-card">
+          <div class="caption-label"></div>
+          <div class="caption-text"></div>
+        </div>
+      </div>
+    </div>
   </main>
   <aside id="connection" role="status">Menghubungkan ulang…</aside>
   <script>
     const params = new URLSearchParams(location.search);
-    const lang = params.get("lang") || "all";
-    const isAll = lang.toLowerCase() === "all" || lang === "*";
+    const profileParam = params.get("profile") || "";
+    const langParam = params.get("lang") || "";
+    const isAll = ["all", "All", "*"].includes(profileParam || langParam) || (!profileParam && !langParam);
+    const targetSlot = /^[123]$/.test(profileParam) ? Number(profileParam) : null;
     const preview = params.get("preview") === "1";
 
     const allowedFonts = new Set([
@@ -136,16 +240,129 @@
     const stage = document.getElementById("stage");
     const subtitles = document.getElementById("subtitles");
     const caption = subtitles;
-    const languageTag = document.getElementById("language-tag");
     const connection = document.getElementById("connection");
+    const slots = {
+      1: document.getElementById("caption-1"),
+      2: document.getElementById("caption-2"),
+      3: document.getElementById("caption-3"),
+    };
 
-    if (!isAll) {
-      languageTag.textContent = lang;
-      if (params.get("tag") === "1") stage.classList.add("show-tag");
+    function hexToRgba(hex, alpha) {
+      if (!hex || hex === "transparent") return "transparent";
+      if (hex.startsWith("rgba") || hex.startsWith("rgb")) return hex;
+      let c = hex.replace("#", "");
+      if (c.length === 3) c = c.split("").map(x => x + x).join("");
+      const num = parseInt(c, 16);
+      if (isNaN(num)) return hex;
+      const r = (num >> 16) & 255;
+      const g = (num >> 8) & 255;
+      const b = num & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha ?? 1})`;
     }
 
-    let retry = 500;
-    let reconnectTimer;
+    function applyStyleToSlot(slotElem, s) {
+      if (!slotElem || !s) return;
+      const card = slotElem.querySelector(".caption-card");
+      const label = slotElem.querySelector(".caption-label");
+      const textElem = slotElem.querySelector(".caption-text");
+
+      card.style.setProperty("--lc-font", `"${s.font_family || font}"`);
+      card.style.setProperty("--lc-size", `${s.font_size || size}px`);
+      card.style.setProperty("--lc-weight", `${s.font_weight || 700}`);
+      card.style.setProperty("--lc-style", s.italic ? "italic" : "normal");
+      card.style.setProperty("--lc-spacing", `${s.letter_spacing || 0}px`);
+      card.style.setProperty("--lc-line-h", `${s.line_height || 1.25}`);
+      card.style.setProperty("--lc-color", s.text_color || requestedColor);
+      card.style.setProperty("--lc-text-align", s.align || "center");
+      card.style.setProperty("--lc-rad", `${s.radius || 0}px`);
+      card.style.setProperty("--lc-pad-x", `${s.padding_x || 0}px`);
+      const isBoxBg = s.background === "solid" || s.background === "gradient" || (s.border_width && s.border_width > 0);
+      const padY = isBoxBg ? (s.padding_y || 0) : 0;
+      card.style.setProperty("--lc-pad-y", `${padY}px`);
+      card.style.setProperty("--lc-mar-x", `${s.margin_x || 0}px`);
+      card.style.setProperty("--lc-mar-y", `${s.margin_y || 0}px`);
+      card.style.setProperty("--lc-max-w", `${s.max_width || 100}%`);
+      card.style.setProperty("--lc-accent", s.accent_color || "#806cff");
+      const animType = s.animation || "fade";
+      const transDur = s.transition_ms || 180;
+      card.style.setProperty("--lc-anim-duration", `${transDur}ms`);
+      card.dataset.animation = animType;
+
+      const bgAlpha = s.background_opacity ?? 0.85;
+      if (s.background === "solid") {
+        card.classList.remove("bg-transparent");
+        card.style.background = hexToRgba(s.background_color || "#101625", bgAlpha);
+        card.style.opacity = "1";
+        card.style.boxShadow = s.border_width > 0 ? "0 10px 30px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.12)" : "0 8px 24px rgba(0,0,0,0.32)";
+        card.style.backdropFilter = "blur(14px)";
+        card.style.webkitBackdropFilter = "blur(14px)";
+      } else if (s.background === "gradient") {
+        card.classList.remove("bg-transparent");
+        const deg = s.gradient_angle ?? 135;
+        const c1 = hexToRgba(s.background_color || "#101625", bgAlpha);
+        const c2 = hexToRgba(s.gradient_color || "#30244C", bgAlpha);
+        card.style.background = `linear-gradient(${deg}deg, ${c1}, ${c2})`;
+        card.style.opacity = "1";
+        card.style.boxShadow = "0 12px 36px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.18)";
+        card.style.backdropFilter = "blur(14px)";
+        card.style.webkitBackdropFilter = "blur(14px)";
+      } else {
+        card.classList.add("bg-transparent");
+        card.style.background = "transparent";
+        card.style.opacity = "1";
+        card.style.boxShadow = "none";
+        card.style.backdropFilter = "none";
+        card.style.webkitBackdropFilter = "none";
+      }
+
+      card.classList.remove("decor-accent", "decor-bubble", "decor-badge");
+      if (s.decoration && s.decoration !== "none") {
+        card.classList.add(`decor-${s.decoration}`);
+      }
+
+      if (s.border_width > 0) {
+        card.style.setProperty("--lc-border-w", `${s.border_width}px`);
+        card.style.setProperty("--lc-border-c", s.border_color || "#414968");
+      } else {
+        card.style.setProperty("--lc-border-w", "0px");
+      }
+
+      if (s.outline_width > 0) {
+        card.style.setProperty("--lc-stroke-w", `${s.outline_width}px`);
+        card.style.setProperty("--lc-stroke-c", s.outline_color || "#121620");
+        if (textElem) textElem.style.webkitTextStroke = `${s.outline_width}px ${s.outline_color || "#121620"}`;
+      } else {
+        card.style.setProperty("--lc-stroke-w", "0px");
+        if (textElem) textElem.style.webkitTextStroke = "0px transparent";
+      }
+
+      if (s.shadow_blur > 0 || s.shadow_x !== 0 || s.shadow_y !== 0) {
+        const sc = hexToRgba(s.shadow_color || "#000000", s.shadow_opacity ?? 0.7);
+        card.style.setProperty("--lc-shadow-x", `${s.shadow_x || 0}px`);
+        card.style.setProperty("--lc-shadow-y", `${s.shadow_y || 2}px`);
+        card.style.setProperty("--lc-shadow-b", `${s.shadow_blur || 4}px`);
+        card.style.setProperty("--lc-shadow-c", sc);
+        if (textElem) {
+          if (s.shadow_blur >= 12) {
+            textElem.style.textShadow = `0 0 ${Math.round(s.shadow_blur * 0.4)}px ${sc}, 0 0 ${s.shadow_blur}px ${sc}, ${s.shadow_x || 0}px ${s.shadow_y || 2}px ${Math.round(s.shadow_blur * 0.75)}px rgba(0,0,0,0.85)`;
+          } else if (s.shadow_blur > 0 || s.shadow_x !== 0 || s.shadow_y !== 0) {
+            textElem.style.textShadow = `${s.shadow_x || 0}px ${s.shadow_y || 2}px ${s.shadow_blur || 4}px ${sc}`;
+          } else {
+            textElem.style.textShadow = "none";
+          }
+        }
+      } else {
+        card.style.setProperty("--lc-shadow-b", "0px");
+        if (textElem) textElem.style.textShadow = "none";
+      }
+
+      if (s.show_label) {
+        slotElem.classList.add("has-label");
+        label.textContent = s.name || `Output ${slotElem.dataset.slot}`;
+      } else {
+        slotElem.classList.remove("has-label");
+      }
+    }
 
     function fitCaption() {
       caption.style.removeProperty("font-size");
@@ -164,55 +381,114 @@
     new ResizeObserver(fitCaption).observe(document.documentElement);
     document.fonts.ready.then(fitCaption);
 
-    function renderLines(entries) {
-      subtitles.replaceChildren();
-      let hasContent = false;
-      for (const [targetLang, text] of entries) {
-        if (!text || !text.trim()) continue;
-        hasContent = true;
-        const line = document.createElement("div");
-        line.className = "subtitle-line";
-        line.dataset.lang = targetLang;
-        line.textContent = text.trim();
-        subtitles.appendChild(line);
+    function updateCaption(slot, text, langLabel) {
+      const slotElem = slots[slot];
+      if (!slotElem) return;
+      const textElem = slotElem.querySelector(".caption-text");
+      const labelElem = slotElem.querySelector(".caption-label");
+      const cardElem = slotElem.querySelector(".caption-card");
+
+      if (!text || !text.trim()) {
+        textElem.textContent = "";
+        slotElem.classList.remove("visible");
+        slotElem.dataset.currentText = "";
+      } else {
+        const clean = text.trim();
+        const prev = slotElem.dataset.currentText || "";
+        slotElem.dataset.currentText = clean;
+        textElem.textContent = clean;
+        if (langLabel && slotElem.classList.contains("has-label")) {
+          labelElem.textContent = langLabel;
+        }
+        slotElem.classList.add("visible");
+        if (prev !== clean && cardElem) {
+          const anim = cardElem.dataset.animation || "fade";
+          if (anim !== "none") {
+            cardElem.classList.remove("anim-fade", "anim-slide", "anim-pop");
+            void cardElem.offsetWidth;
+            cardElem.classList.add(`anim-${anim}`);
+          }
+        }
       }
+
+      let anyVisible = false;
+      for (const s of Object.values(slots)) {
+        if (s.classList.contains("visible")) {
+          anyVisible = true;
+          break;
+        }
+      }
+      stage.classList.toggle("visible", anyVisible);
       fitCaption();
-      stage.classList.toggle("visible", hasContent);
     }
 
     if (preview) {
       if (isAll) {
-        renderLines([
-          ["Japanese", "お腹空きすぎたからちょっと"],
-          ["English", "Thanks for paying attention."],
-          ["Chinese", "謝謝你這麼關心"]
-        ]);
+        updateCaption(1, "Thanks for paying attention.", "English");
+        updateCaption(2, "お腹空きすぎたからちょっと", "Japanese");
+        updateCaption(3, "謝謝你這麼關心", "Chinese");
       } else {
-        renderLines([[lang, params.get("text") || "LumaCaption siap tampil di OBS"]]);
+        const slot = targetSlot || 1;
+        updateCaption(slot, params.get("text") || "KizCaption siap tampil di OBS", langParam || `Output ${slot}`);
       }
     } else {
+      let retry = 500;
+      let reconnectTimer;
+
       function connect() {
         clearTimeout(reconnectTimer);
         const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${location.host}/ws?lang=${encodeURIComponent(isAll ? "all" : lang)}`;
+        const query = targetSlot ? `profile=${targetSlot}` : (isAll ? "profile=all" : `lang=${encodeURIComponent(langParam)}`);
+        const wsUrl = `${protocol}//${location.host}/ws?${query}`;
         const socket = new WebSocket(wsUrl);
-        socket.onopen = () => { retry = 500; connection.classList.remove("visible"); };
+
+        socket.onopen = () => {
+          retry = 500;
+          connection.classList.remove("visible");
+        };
+
         socket.onmessage = event => {
           try {
             const data = JSON.parse(event.data);
-            if (isAll && data.all) {
-              renderLines(Object.entries(data.all));
-            } else if (!isAll && data.lang === lang) {
-              renderLines([[lang, data.text || ""]]);
+
+            if (data.styles) {
+              for (const [sNum, sDef] of Object.entries(data.styles)) {
+                applyStyleToSlot(slots[sNum], sDef);
+              }
+            } else if (data.style && data.slot) {
+              applyStyleToSlot(slots[data.slot], data.style);
+            }
+
+            if (data.anchor) {
+              document.body.dataset.anchor = data.anchor;
+            }
+            if (data.gap !== undefined) {
+              document.documentElement.style.setProperty("--stage-gap", `${data.gap}px`);
+            }
+
+            if (data.slots) {
+              for (const [sNum, sText] of Object.entries(data.slots)) {
+                updateCaption(Number(sNum), sText);
+              }
+            } else if (data.all) {
+              const entries = Object.entries(data.all);
+              for (let i = 0; i < entries.length; i++) {
+                updateCaption(i + 1, entries[i][1], entries[i][0]);
+              }
+            } else if (data.text !== undefined) {
+              const sNum = data.slot || targetSlot || 1;
+              updateCaption(sNum, data.text, data.lang);
             }
           } catch (_) {}
         };
+
         socket.onclose = () => {
-          renderLines([]);
+          for (let i = 1; i <= 3; i++) updateCaption(i, "");
           connection.classList.add("visible");
           reconnectTimer = setTimeout(connect, retry);
           retry = Math.min(retry * 1.8, 10000);
         };
+
         socket.onerror = () => socket.close();
       }
       connect();

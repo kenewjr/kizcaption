@@ -42,3 +42,15 @@ scratch/
 inference_results.json
 audio_results.json
 worker_audio_results.json
+
+vocabulary.json
+*.bak
+*.tmp
+*.corrupt
+/output/*
+/models/*
+!src/lumacaption/assets/*
+*.zip
+*.egg-info/
+AGENTS.md
+.agents/

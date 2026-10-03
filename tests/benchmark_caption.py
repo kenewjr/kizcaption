@@ -15,9 +15,9 @@ from faster_whisper.audio import decode_audio
 
 # Adjust path so modules can be imported
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from gpu_runtime import configure_cuda_runtime
-from mt.nllb_engine import NllbEngine
-from stt.whisper_engine import WhisperEngine
+from lumacaption.gpu_runtime import configure_cuda_runtime
+from lumacaption.mt.nllb_engine import NllbEngine
+from lumacaption.stt.whisper_engine import WhisperEngine
 
 def normalize_text(text: str) -> str:
     text = unicodedata.normalize("NFKC", text).lower()

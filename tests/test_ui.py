@@ -13,10 +13,10 @@ for _p in (str(_root / "src" / "lumacaption"), str(_root / "src"), str(_root)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from audio.capture import InputDevice, MicrophoneCapture
-from config import AppConfig, ConfigStore
-from pipeline import PipelineEvent
-from ui.control_panel import ControlPanel, UNUSED_TARGET
+from lumacaption.audio.capture import InputDevice, MicrophoneCapture
+from lumacaption.config import AppConfig, ConfigStore
+from lumacaption.pipeline import PipelineEvent
+from lumacaption.ui.control_panel import ControlPanel, UNUSED_TARGET
 
 
 class DashboardTests(unittest.TestCase):
@@ -114,18 +114,30 @@ class DashboardTests(unittest.TestCase):
 
             panel._reset_audio()
             for now in (100, 101, 102, 103):
-                with patch("ui.control_panel.time.monotonic", return_value=now):
+                with patch("lumacaption.ui.control_panel.time.monotonic", return_value=now):
                     panel._handle_event(PipelineEvent("audio_level", "", {"rms": 0.004, "peak": 0.008}))
             self.assertIn("Sinyal tetap", panel.audio_hint_var.get())
             self.assertEqual(panel.rms_var.get(), "-48 dBFS")
             self.assertEqual(panel.peak_var.get(), "-42 dBFS")
-            with patch("ui.control_panel.time.monotonic", return_value=104):
+            with patch("lumacaption.ui.control_panel.time.monotonic", return_value=104):
                 panel._handle_event(PipelineEvent("vad_probability", "", {"probability": 0.9, "speaking": True}))
                 panel._update_audio(0.1, 0.3)
                 self.assertIn("Ucapan terdeteksi", panel.audio_hint_var.get())
                 self.assertEqual(panel.vad_status_var.get(), "90%")
                 panel._update_audio(0.5, 1)
                 self.assertIn("clipping", panel.audio_hint_var.get())
+            # Overlay diagnostics tests
+            self.assertIn("0", panel.overlay_clients_var.get())
+            panel._handle_event(PipelineEvent("clients_changed", "3"))
+            self.assertIn("3 browser source terhubung", panel.overlay_clients_var.get())
+            panel._handle_event(PipelineEvent("clients_changed", "1"))
+            self.assertIn("1 browser source terhubung", panel.overlay_clients_var.get())
+            panel._handle_event(PipelineEvent("clients_changed", "0"))
+            self.assertIn("0 terhubung (tampilan pasif)", panel.overlay_clients_var.get())
+
+            panel._handle_event(PipelineEvent("published", "Caption terkirim ke server overlay"))
+            self.assertEqual(panel.activity_var.get(), "Caption terkirim ke server overlay")
+
             panel._handle_event(PipelineEvent("error", "Test failure"))
             panel._handle_event(PipelineEvent("stopped", ""))
             self.assertEqual(panel.status_var.get(), "ERROR")

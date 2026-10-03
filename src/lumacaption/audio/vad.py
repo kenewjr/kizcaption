@@ -79,6 +79,7 @@ class VadSegmenter:
         self._silence_frames = 0
         self._voiced_frames = 0
         self._last_probability = 0.0
+        self._ambient_prob = 0.0
         self._leading_frames = 0
 
     @property
@@ -96,7 +97,9 @@ class VadSegmenter:
         self._last_probability = min(1.0, max(0.0, float(probability)))
 
         if not self._speaking:
-            if probability < self.threshold:
+            self._ambient_prob = 0.95 * self._ambient_prob + 0.05 * self._last_probability
+            onset_threshold = min(0.70, max(self.threshold, self._ambient_prob + 0.12))
+            if probability < onset_threshold:
                 self.pre_roll.append(pcm.copy())
                 return None
             self._speaking = True
@@ -108,7 +111,9 @@ class VadSegmenter:
             return None
 
         self._speech.append(pcm.copy())
-        if probability >= self.threshold:
+        # Hysteresis: keep speaking on softer consonant/vowel word endings
+        exit_threshold = max(0.30, self.threshold - 0.08)
+        if probability >= exit_threshold:
             self._voiced_frames += 1
             self._silence_frames = 0
         else:

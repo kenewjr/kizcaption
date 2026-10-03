@@ -6,3 +6,4 @@ onnxruntime>=1.22,<2
 sentencepiece>=0.2,<1
 sounddevice>=0.5,<1
 websockets>=15,<18
+av>=14,<19

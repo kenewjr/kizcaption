@@ -1,24 +1,24 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lumacaption"
-version = "1.0.0"
-description = "Real-time multilingual voice translation overlay for OBS"
+name = "kizcaption"
+version = "1.3.0"
+description = "Offline multilingual live caption companion for OBS by kenewjr 2026"
 readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-    "ctranslate2",
-    "faster-whisper",
-    "onnxruntime",
-    "sounddevice",
-    "websockets>=13.0",
-    "numpy",
-]
+authors = [{name = "kenewjr"}]
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
 
 [project.scripts]
-lumacaption = "lumacaption.main:main"
+kizcaption = "lumacaption.main:main"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+lumacaption = ["assets/*", "output/*.html"]

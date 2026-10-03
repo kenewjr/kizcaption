@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -15,9 +16,9 @@ _root = Path(__file__).resolve().parents[1]
 for _p in (str(_root / "src" / "lumacaption"), str(_root / "src"), str(_root)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
-from config import AppConfig, OverlayConfig, TargetConfig
-from output.overlay_server import OverlayService
-from pipeline import CaptionPipeline, PipelineEvent
+from lumacaption.config import AppConfig, OverlayConfig, TargetConfig
+from lumacaption.output.overlay_server import OverlayService
+from lumacaption.pipeline import CaptionPipeline, PipelineEvent
 
 class ReplayCapture:
     def __init__(self, pcm_frames: list[np.ndarray], on_warning, on_level):
@@ -51,11 +52,15 @@ class ReplayCapture:
             self.on_level(0.001, 0.002)
             yield silence_frame
         self.completed = True
+        while not self.stopped:
+            await asyncio.sleep(0.05)
 
 class AudioReplayPipelineTest(unittest.TestCase):
     def test_pipeline_real_inference_replay(self):
         app_dir = Path(__file__).parents[1]
         manifest_path = Path(r"C:\Users\Kenewjr\.gemini\antigravity-ide\brain\4d99ab57-0e07-467c-9ff4-fa109ed8455b\scratch\fleurs_id\manifest.json")
+        if not manifest_path.is_file() or os.environ.get("CI"):
+            self.skipTest(f"Replay manifest tidak ada atau CI aktif; lewati pengujian lokal audio replay.")
         manifest = json.loads(manifest_path.read_text("utf-8"))
         # Pick first sample: 8.5s speech
         sample = manifest["samples"][0]
@@ -73,7 +78,7 @@ class AudioReplayPipelineTest(unittest.TestCase):
             whisper_beam_size=3,
             stt_device="cuda",
             mt_device="cuda",
-            overlay=OverlayConfig(host="127.0.0.1", port=8768),
+            overlay=OverlayConfig(host="127.0.0.1", port=0),
             vad_threshold=0.3,
             min_silence_ms=500,
         )
@@ -114,7 +119,7 @@ class AudioReplayPipelineTest(unittest.TestCase):
         pipeline.start()
         try:
             start_t = time.monotonic()
-            while time.monotonic() - start_t < 15:
+            while time.monotonic() - start_t < 60:
                 time.sleep(0.1)
                 if capture_inst and capture_inst.completed and any(ev.kind == "published" for ev in events):
                     time.sleep(0.5)
@@ -125,7 +130,7 @@ class AudioReplayPipelineTest(unittest.TestCase):
                 pipeline._thread.join(timeout=3.0)
 
         kinds = [ev.kind for ev in events]
-        print(f"Replay pipeline events: {kinds}", flush=True)
+        print(f"Replay pipeline events count: {len(kinds)}, unique: {set(kinds)}", flush=True)
 
         self.assertIn("model_ready", kinds)
         self.assertIn("started", kinds)

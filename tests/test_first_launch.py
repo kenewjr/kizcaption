@@ -30,6 +30,7 @@ class FirstLaunchWorkspaceTest(unittest.TestCase):
             self.assertTrue((test_dir / "output" / "overlay.html").is_file(), "overlay.html must be copied")
             self.assertTrue((test_dir / "logs").is_dir(), "logs directory must be created")
             self.assertTrue((test_dir / "config.json").is_file(), "config.json must be created")
+            self.assertTrue((test_dir / "vocabulary.json").is_file(), "vocabulary.json must be created")
 
             # Validate generated config.json can be loaded cleanly
             store = ConfigStore(test_dir / "config.json")

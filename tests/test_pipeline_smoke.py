@@ -15,9 +15,9 @@ for _p in (str(_root / "src" / "lumacaption"), str(_root / "src"), str(_root)):
 
 import numpy as np
 
-from config import AppConfig, TargetConfig
-from pipeline import CaptionPipeline
-from stt.whisper_engine import Transcript
+from lumacaption.config import AppConfig, TargetConfig
+from lumacaption.pipeline import CaptionPipeline
+from lumacaption.stt.whisper_engine import Transcript
 
 
 class FakeCapture:
@@ -129,8 +129,8 @@ class PipelineSmokeTests(unittest.TestCase):
                 ole32.CoInitializeEx.side_effect = initialize
                 ole32.CoUninitialize.side_effect = uninitialize
                 pipeline = CaptionPipeline(AppConfig(), ".", events.append)
-                with patch("pipeline.sys.platform", platform), \
-                        patch("pipeline.ctypes.windll", Mock(ole32=ole32), create=True), \
+                with patch("lumacaption.pipeline.sys.platform", platform), \
+                        patch("lumacaption.pipeline.ctypes.windll", Mock(ole32=ole32), create=True), \
                         patch.object(pipeline, "_run", run):
                     pipeline.start()
                     pipeline._thread.join(3)
@@ -196,6 +196,67 @@ class PipelineSmokeTests(unittest.TestCase):
                 self.assertGreaterEqual(metrics["after_vad_ms"], metrics["stt_ms"] + metrics["mt_ms"])
                 vad = next(event for event in events if event.kind == "vad_probability")
                 self.assertEqual(vad.data, {"probability": 0.85, "speaking": False, "threshold": 0.5})
+
+    def test_rapid_toggle_stop_restart(self):
+        config = AppConfig()
+        for i in range(3):
+            events = []
+            pipeline = CaptionPipeline(
+                config,
+                ".",
+                events.append,
+                capture_factory=FakeCapture,
+                vad_factory=FakeVad,
+                stt_factory=FakeStt,
+                mt_factory=FakeMt,
+                output_factory=FakeOutput,
+            )
+            pipeline.start()
+            self.assertTrue(pipeline.running)
+            pipeline.request_stop()
+            if pipeline._thread:
+                pipeline._thread.join(2.0)
+            self.assertFalse(pipeline.running)
+            self.assertFalse(pipeline.inference_busy)
+
+    def test_bounded_publish_task_backlog(self):
+        # Verify that slow/stalled output does not cause unbounded task growth
+        events = []
+        hang_event = asyncio.Event()
+
+        class SlowOutput:
+            async def start(self):
+                pass
+            async def publish(self, translations):
+                await hang_event.wait()
+            async def stop(self):
+                hang_event.set()
+
+        pipeline = CaptionPipeline(
+            AppConfig(),
+            ".",
+            events.append,
+            capture_factory=FakeCapture,
+            vad_factory=FakeVad,
+            stt_factory=FakeStt,
+            mt_factory=FakeMt,
+            output_factory=SlowOutput,
+        )
+        pipeline.start()
+        try:
+            # Wait for first utterance to reach slow output
+            t0 = time.monotonic()
+            while time.monotonic() - t0 < 2.0:
+                time.sleep(0.05)
+                if any(ev.kind == "transcript" for ev in events):
+                    break
+        finally:
+            hang_event.set()
+            pipeline.request_stop()
+            if pipeline._thread:
+                pipeline._thread.join(2.0)
+        self.assertFalse(pipeline.running)
+
 
 if __name__ == "__main__":
     unittest.main()

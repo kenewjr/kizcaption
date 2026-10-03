@@ -6,8 +6,8 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from config import AppConfig, OverlayConfig, TargetConfig
-from output.overlay_server import OverlayService
+from lumacaption.config import AppConfig, OverlayConfig, TargetConfig
+from lumacaption.output.overlay_server import OverlayService
 
 def main():
     app_dir = Path(__file__).parents[1]

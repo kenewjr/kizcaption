@@ -9,21 +9,31 @@ from pathlib import Path
 import time
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from config import OverlayConfig, TargetConfig
+from lumacaption.config import OverlayConfig, TargetConfig
 
 
-def overlay_url(config: OverlayConfig, language: str, **extra: str) -> str:
+def overlay_url(config: OverlayConfig, language: str = "", profile: int | str = "", **extra: str) -> str:
     host = f"[{config.host}]" if ":" in config.host else config.host
-    query = urlencode({
-        "lang": language,
+    params: dict[str, str | int] = {
         "font": config.font_family,
         "size": config.font_size,
         "color": config.text_color,
         "outline": config.outline_color,
         "theme": config.theme,
-        **extra,
-    })
-    return f"http://{host}:{config.port}/overlay?{query}"
+    }
+    if profile:
+        params["profile"] = profile
+    elif language:
+        params["lang"] = language
+    else:
+        params["profile"] = "all"
+    params.update(extra)
+    return f"http://{host}:{config.port}/overlay?{urlencode(params)}"
+
+
+def static_overlay_url(config: OverlayConfig) -> str:
+    host = f"[{config.host}]" if ":" in config.host else config.host
+    return f"http://{host}:{config.port}/overlay.html"
 
 
 class OverlayServer:
@@ -36,21 +46,72 @@ class OverlayServer:
         on_status: Callable[[str, str], None] | None = None,
     ) -> None:
         self.config = config
+        for idx, target in enumerate(targets, 1):
+            if target.profile == 0:
+                target.profile = idx
+        self.targets = list(targets)
         self.languages = {target.language for target in targets}
         self.target_order = [target.language for target in targets]
-        self.html = Path(html_path).read_text(encoding="utf-8")
+        self.target_by_slot = {target.profile: target.language for target in targets}
+        self.slot_by_target = {target.language: target.profile for target in targets}
+        self.html_path = Path(html_path)
+        self._html_fallback = self.html_path.read_text(encoding="utf-8")
         self.clear_after = clear_after
         self.on_status = on_status or (lambda _level, _message: None)
         self.clients: dict[str, set] = defaultdict(set)
         self.current: dict[str, tuple[str, float]] = {}
         self.server = None
         self.clear_task: asyncio.Task | None = None
+        self.last_publish_time: float = 0.0
+        self.last_publish_clients: int = 0
 
-    def url(self, language: str) -> str:
-        return overlay_url(self.config, language)
+    @property
+    def active_client_count(self) -> int:
+        return sum(len(c) for c in self.clients.values())
 
-    def preview_url(self, language: str, text: str = "LumaCaption siap tampil di OBS") -> str:
-        return overlay_url(self.config, language, preview="1", text=text)
+    def get_diagnostics(self) -> dict:
+        return {
+            "running": self.server is not None,
+            "port": self.config.port,
+            "host": self.config.host,
+            "clients": self.active_client_count,
+            "last_publish_time": self.last_publish_time,
+            "last_publish_clients": self.last_publish_clients,
+        }
+
+    @property
+    def html(self) -> str:
+        try:
+            return self.html_path.read_text(encoding="utf-8")
+        except Exception:
+            return self._html_fallback
+
+    @html.setter
+    def html(self, content: str) -> None:
+        self._html_fallback = content
+
+    def url(self, language: str = "", profile: int | str = "") -> str:
+        return overlay_url(self.config, language=language, profile=profile)
+
+    def preview_url(self, language: str = "", profile: int | str = "", text: str = "KizCaption siap tampil di OBS") -> str:
+        return overlay_url(self.config, language=language, profile=profile, preview="1", text=text)
+
+    async def update_styles(self, config: OverlayConfig) -> None:
+        self.config = config
+        styles_dict = {
+            slot: self.config.profiles[slot - 1].to_dict()
+            for slot in (1, 2, 3)
+            if slot - 1 < len(self.config.profiles)
+        }
+        msg = json.dumps({
+            "type": "style_update",
+            "styles": styles_dict,
+            "anchor": self.config.anchor,
+            "gap": self.config.gap,
+            "order": self.config.order,
+        }, ensure_ascii=False)
+        for group in list(self.clients.keys()):
+            await self._broadcast_raw(group, msg)
 
     async def start(self) -> None:
         if self.server is not None:
@@ -59,10 +120,14 @@ class OverlayServer:
 
         def process_request(connection, request):
             parts = urlsplit(request.path)
-            if parts.path in ("/", "/overlay"):
-                language = parse_qs(parts.query).get("lang", [""])[0]
-                if language and language not in self.languages and language not in ("all", "All", "*"):
+            if parts.path in ("/", "/overlay", "/overlay.html"):
+                qs = parse_qs(parts.query)
+                lang = qs.get("lang", [""])[0]
+                prof = qs.get("profile", [""])[0]
+                if lang and lang not in self.languages and lang not in ("all", "All", "*"):
                     return connection.respond(http.HTTPStatus.NOT_FOUND, "Unknown language\n")
+                if prof and prof not in ("1", "2", "3", "all", "All", "*"):
+                    return connection.respond(http.HTTPStatus.NOT_FOUND, "Unknown profile\n")
                 response = connection.respond(http.HTTPStatus.OK, self.html)
                 response.headers["Content-Type"] = "text/html; charset=utf-8"
                 response.headers["Cache-Control"] = "no-store"
@@ -94,55 +159,153 @@ class OverlayServer:
 
     async def _handler(self, websocket) -> None:
         parts = urlsplit(websocket.request.path)
-        language = parse_qs(parts.query).get("lang", [""])[0]
-        is_all = language in ("all", "All", "*")
-        if parts.path != "/ws" or (not is_all and language not in self.languages):
-            await websocket.close(1008, "Unknown language or endpoint")
+        qs = parse_qs(parts.query)
+        language = qs.get("lang", [""])[0]
+        profile = qs.get("profile", [""])[0]
+
+        if parts.path != "/ws":
+            await websocket.close(1008, "Invalid endpoint")
             return
-        group = "all" if is_all else language
+
+        has_profile = bool(profile)
+        has_lang = bool(language)
+        if not has_profile and not has_lang:
+            has_lang = True
+            language = "all"
+
+        if has_profile:
+            is_all = profile in ("all", "All", "*")
+            slot = int(profile) if profile in ("1", "2", "3") else None
+            if not is_all and slot is None:
+                await websocket.close(1008, "Unknown profile")
+                return
+            group = "profile_all" if is_all else f"profile_{slot}"
+        else:
+            is_all = language in ("all", "All", "*")
+            if not is_all and language not in self.languages:
+                await websocket.close(1008, "Unknown language")
+                return
+            group = "all" if is_all else language
+
         self.clients[group].add(websocket)
+        self.on_status("clients_changed", str(self.active_client_count))
         try:
-            if is_all:
-                all_data = {
-                    lang: self.current.get(lang, ("", 0.0))[0]
-                    for lang in self.target_order
+            if has_profile:
+                styles_dict = {
+                    s: self.config.profiles[s - 1].to_dict()
+                    for s in (1, 2, 3)
+                    if s - 1 < len(self.config.profiles)
                 }
-                await websocket.send(json.dumps({"all": all_data}, ensure_ascii=False))
+                if is_all:
+                    all_data = {lang: self.current.get(lang, ("", 0.0))[0] for lang in self.target_order}
+                    slots_data = {
+                        s: self.current.get(self.target_by_slot.get(s, ""), ("", 0.0))[0]
+                        for s in (1, 2, 3)
+                    }
+                    msg = json.dumps({
+                        "all": all_data,
+                        "slots": slots_data,
+                        "styles": styles_dict,
+                        "anchor": self.config.anchor,
+                        "gap": self.config.gap,
+                        "order": self.config.order,
+                    }, ensure_ascii=False)
+                    await websocket.send(msg)
+                else:
+                    lang_name = self.target_by_slot.get(slot, "")
+                    text = self.current.get(lang_name, ("", 0.0))[0] if lang_name else ""
+                    msg = json.dumps({
+                        "slot": slot,
+                        "lang": lang_name,
+                        "text": text,
+                        "style": styles_dict.get(slot, {}),
+                    }, ensure_ascii=False)
+                    await websocket.send(msg)
             else:
-                text = self.current.get(group, ("", 0.0))[0]
-                await websocket.send(json.dumps({"lang": group, "text": text}, ensure_ascii=False))
+                if is_all:
+                    all_data = {
+                        lang: self.current.get(lang, ("", 0.0))[0]
+                        for lang in self.target_order
+                    }
+                    await websocket.send(json.dumps({"all": all_data}, ensure_ascii=False))
+                else:
+                    text = self.current.get(language, ("", 0.0))[0]
+                    await websocket.send(json.dumps({"lang": language, "text": text}, ensure_ascii=False))
             await websocket.wait_closed()
         finally:
             self.clients[group].discard(websocket)
+            self.on_status("clients_changed", str(self.active_client_count))
 
     async def publish(self, translations: dict[str, str]) -> None:
         now = time.monotonic()
+        total_delivered = 0
+        has_content = any(bool(text.strip()) for text in translations.values())
         for language, text in translations.items():
             if language in self.languages:
                 self.current[language] = (text, now)
-                await self._broadcast(language, text)
+                # 1. Broadcast to legacy language listeners
+                total_delivered += await self._broadcast(language, text)
+                # 2. Broadcast to slot profile listeners
+                slot = self.slot_by_target.get(language)
+                if slot:
+                    slot_group = f"profile_{slot}"
+                    if self.clients.get(slot_group):
+                        msg = json.dumps({
+                            "slot": slot,
+                            "lang": language,
+                            "text": text,
+                        }, ensure_ascii=False)
+                        total_delivered += await self._broadcast_raw(slot_group, msg)
+
+        # 3. Broadcast to all listeners
         if self.clients.get("all"):
             all_dict = {
                 lang: translations.get(lang, self.current.get(lang, ("", 0.0))[0])
                 for lang in self.target_order
             }
             message = json.dumps({"all": all_dict}, ensure_ascii=False)
-            await self._broadcast_raw("all", message)
+            total_delivered += await self._broadcast_raw("all", message)
 
-    async def _broadcast(self, language: str, text: str) -> None:
+        if self.clients.get("profile_all"):
+            all_dict = {
+                lang: translations.get(lang, self.current.get(lang, ("", 0.0))[0])
+                for lang in self.target_order
+            }
+            slots_dict = {
+                s: translations.get(self.target_by_slot.get(s, ""), self.current.get(self.target_by_slot.get(s, ""), ("", 0.0))[0])
+                for s in (1, 2, 3)
+            }
+            message = json.dumps({
+                "all": all_dict,
+                "slots": slots_dict,
+            }, ensure_ascii=False)
+            total_delivered += await self._broadcast_raw("profile_all", message)
+
+        if has_content:
+            self.last_publish_time = time.time()
+            self.last_publish_clients = total_delivered
+
+    async def _broadcast(self, language: str, text: str) -> int:
         message = json.dumps({"lang": language, "text": text}, ensure_ascii=False)
-        await self._broadcast_raw(language, message)
+        return await self._broadcast_raw(language, message)
 
-    async def _broadcast_raw(self, group: str, message: str) -> None:
+    async def _broadcast_raw(self, group: str, message: str) -> int:
         clients = list(self.clients[group])
+        delivered = 0
         if clients:
+            async def _safe_send(ws):
+                await asyncio.wait_for(ws.send(message), timeout=1.5)
+
             results = await asyncio.gather(
-                *(client.send(message) for client in clients),
+                *(_safe_send(client) for client in clients),
                 return_exceptions=True,
             )
             for client, result in zip(clients, results, strict=True):
                 if isinstance(result, Exception):
                     self.clients[group].discard(client)
+                else:
+                    delivered += 1
+        return delivered
 
     async def _clear_stale(self) -> None:
         try:
@@ -156,11 +319,20 @@ class OverlayServer:
                     if text and now - updated_at >= self.clear_after:
                         self.current[language] = ("", updated_at)
                         await self._broadcast(language, "")
+                        slot = self.slot_by_target.get(language)
+                        if slot and self.clients.get(f"profile_{slot}"):
+                            await self._broadcast_raw(f"profile_{slot}", json.dumps({"slot": slot, "lang": language, "text": ""}))
                         cleared_any = True
-                if cleared_any and self.clients.get("all"):
-                    all_dict = {lang: self.current.get(lang, ("", 0.0))[0] for lang in self.target_order}
-                    message = json.dumps({"all": all_dict}, ensure_ascii=False)
-                    await self._broadcast_raw("all", message)
+                if cleared_any:
+                    if self.clients.get("all"):
+                        all_dict = {lang: self.current.get(lang, ("", 0.0))[0] for lang in self.target_order}
+                        message = json.dumps({"all": all_dict}, ensure_ascii=False)
+                        await self._broadcast_raw("all", message)
+                    if self.clients.get("profile_all"):
+                        all_dict = {lang: self.current.get(lang, ("", 0.0))[0] for lang in self.target_order}
+                        slots_dict = {s: self.current.get(self.target_by_slot.get(s, ""), ("", 0.0))[0] for s in (1, 2, 3)}
+                        message = json.dumps({"all": all_dict, "slots": slots_dict}, ensure_ascii=False)
+                        await self._broadcast_raw("profile_all", message)
         except asyncio.CancelledError:
             pass
 
@@ -213,20 +385,36 @@ class OverlayService:
         return (
             self.config.host,
             self.config.port,
-            self.config.font_family,
-            self.config.font_size,
-            self.config.text_color,
-            self.config.outline_color,
-            self.config.theme,
             tuple(target.language for target in self.targets),
-            self.clear_after,
+            tuple(target.profile for target in self.targets),
         )
 
-    def url(self, language: str) -> str:
-        return overlay_url(self.config, language)
+    def static_url(self) -> str:
+        return static_overlay_url(self.config)
 
-    def preview_url(self, language: str) -> str:
-        return overlay_url(self.config, language, preview="1", text="LumaCaption siap tampil di OBS")
+    def url(self, language: str = "", profile: int | str = "") -> str:
+        return overlay_url(self.config, language=language, profile=profile)
+
+    def preview_url(self, language: str = "", profile: int | str = "") -> str:
+        return overlay_url(self.config, language=language, profile=profile, preview="1", text="KizCaption siap tampil di OBS")
+
+    def get_diagnostics(self) -> dict:
+        server = self._server
+        if not self.running or server is None:
+            return {
+                "running": False,
+                "port": self.config.port,
+                "host": self.config.host,
+                "clients": 0,
+                "last_publish_time": 0.0,
+                "last_publish_clients": 0,
+            }
+        return server.get_diagnostics()
+
+    def update_styles(self, config: OverlayConfig) -> None:
+        self.config = config
+        if self._loop and self._server and self._loop.is_running():
+            asyncio.run_coroutine_threadsafe(self._server.update_styles(config), self._loop)
 
     def start(self, timeout: float = 4.0) -> None:
         if self.running:
@@ -321,4 +509,3 @@ class OverlayPublisher:
     async def stop(self) -> None:
         if self.service.running:
             await self.service.clear()
-

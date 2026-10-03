@@ -1,3 +1,3 @@
-"""LumaCaption: Real-time multilingual voice translation overlay for OBS."""
-
-__version__ = "1.0.0"
+"""KizCaption: offline multilingual captions for OBS."""
+__version__ = "1.3.0"
+CREDIT = "by kenewjr 2026"

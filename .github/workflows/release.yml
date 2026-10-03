@@ -7,16 +7,16 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag version name (e.g. v1.0.0)'
+        description: 'Tag version name (e.g. v1.3.0)'
         required: false
-        default: 'v1.0.0'
+        default: 'v1.3.0'
 
 permissions:
   contents: write
 
 jobs:
   build-and-release:
-    name: Build and Release LumaCaption Standalone .EXE
+    name: Build and Release KizCaption Standalone .EXE
     runs-on: windows-latest
 
     steps:
@@ -35,29 +35,39 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pyinstaller
 
+      - name: Run Test Suite before Build
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m unittest discover -s tests -v
+
       - name: Build Standalone .EXE
         run: |
-          pyinstaller LumaCaption.spec --noconfirm
+          pyinstaller KizCaption.spec --noconfirm
 
       - name: Copy user template assets to dist
         shell: powershell
         run: |
-          Copy-Item -Recurse -Force output dist/LumaCaption/
-          Copy-Item -Recurse -Force models dist/LumaCaption/
-          Copy-Item -Force config.example.json dist/LumaCaption/
+          if (-not (Test-Path "dist/KizCaption/output")) { New-Item -ItemType Directory -Path "dist/KizCaption/output" -Force }
+          if (-not (Test-Path "dist/KizCaption/models")) { New-Item -ItemType Directory -Path "dist/KizCaption/models" -Force }
+          Copy-Item -Force "output/overlay.html" "dist/KizCaption/output/"
+          Copy-Item -Force "models/silero_vad.onnx" "dist/KizCaption/models/"
+          Copy-Item -Force "config.example.json" "dist/KizCaption/"
+          if (Test-Path "vocabulary.json") {
+              Copy-Item -Force "vocabulary.json" "dist/KizCaption/"
+          } else {
+              Copy-Item -Force "src/lumacaption/assets/vocabulary.json" "dist/KizCaption/vocabulary.json"
+          }
 
       - name: Archive Release Package
         shell: powershell
         run: |
-          Compress-Archive -Path dist/LumaCaption/* -DestinationPath LumaCaption-windows-x64.zip -Force
+          Compress-Archive -Path dist/KizCaption/* -DestinationPath KizCaption-windows-x64.zip -Force
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: LumaCaption-windows-x64.zip
-          name: "LumaCaption ${{ github.ref_name || inputs.tag_name }}"
+          files: KizCaption-windows-x64.zip
+          name: "KizCaption ${{ github.ref_name || inputs.tag_name }}"
           generate_release_notes: true
           draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
