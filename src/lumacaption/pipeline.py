@@ -115,16 +115,17 @@ class CaptionPipeline:
         utterances = self._utterances
         if utterances is None:
             return
-        while True:
+        # Drain any backlog first so worker does not process stale audio
+        while not utterances.empty():
             try:
-                utterances.put_nowait(_INFERENCE_STOP)
-                return
-            except queue.Full:
-                try:
-                    utterances.get_nowait()
-                    utterances.task_done()
-                except queue.Empty:
-                    return
+                utterances.get_nowait()
+                utterances.task_done()
+            except Exception:
+                break
+        try:
+            utterances.put_nowait(_INFERENCE_STOP)
+        except Exception:
+            pass
 
     def request_stop(self) -> None:
         self._stop_requested.set()
@@ -156,6 +157,8 @@ class CaptionPipeline:
             capture_kwargs["clarity"] = self.config.audio_clarity
         if hasattr(self.config, "denoise_engine"):
             capture_kwargs["denoise_engine"] = self.config.denoise_engine
+        if hasattr(self.config, "normalize_audio"):
+            capture_kwargs["normalize_audio"] = self.config.normalize_audio
         capture_kwargs["model_dir"] = self.app_dir / "models" / "dtln"
         try:
             capture = self.capture_factory(
@@ -533,7 +536,7 @@ class CaptionPipeline:
             self._utterances = None
             worker = self._worker
             if worker and worker.is_alive():
-                worker.join(0.05)
+                await asyncio.to_thread(worker.join, 1.0)
                 if worker.is_alive():
                     self._emit(
                         "background",

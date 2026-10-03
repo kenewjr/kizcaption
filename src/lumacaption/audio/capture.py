@@ -73,7 +73,7 @@ class VocalClarityProcessor:
         self.ea1 = (-2.0 * cos_eq) / a0_eq
         self.ea2 = (1.0 - alpha_eq / A) / a0_eq
         self.ex1 = self.ex2 = self.ey1 = self.ey2 = 0.0
-        self.gate_threshold = 0.005  # -46 dBFS quiet floor threshold
+        self.gate_threshold = 0.002  # -54 dBFS quiet floor threshold
         self.expander_gain = 1.0
 
     def reset(self) -> None:
@@ -108,9 +108,9 @@ class VocalClarityProcessor:
         # Downward expander: smooth soft noise gate during silence
         rms = float(np.sqrt(np.mean(y * y)))
         if rms < self.gate_threshold and rms > 1e-6:
-            target = max(0.30, (rms / self.gate_threshold) ** 0.8)
+            target = max(0.50, (rms / self.gate_threshold) ** 0.8)
         elif rms <= 1e-6:
-            target = 0.30
+            target = 0.50
         else:
             target = 1.0
         alpha = 0.4 if target > self.expander_gain else 0.85
@@ -207,6 +207,7 @@ class MicrophoneCapture:
         clarity: bool = True,
         denoise_engine: str = "clarity",
         model_dir: Any = None,
+        normalize_audio: bool = True,
     ) -> None:
         self.device = device
         self.on_warning = on_warning or (lambda _message: None)
@@ -216,6 +217,8 @@ class MicrophoneCapture:
         self.clarity = clarity
         self.denoise_engine = denoise_engine
         self.model_dir = model_dir
+        self.normalize_audio = normalize_audio
+        self._auto_gain = 1.0
         self._frames: queue.Queue[Any] = queue.Queue(maxsize=queue_frames)
         self._stream: Any | None = None
         self._closed = threading.Event()
@@ -373,12 +376,28 @@ class MicrophoneCapture:
             else:
                 samples = np.mean(samples, axis=1, dtype=np.float32)
         mono = samples.reshape(-1)
+        # Apply user gain first so quiet inputs are boosted before DSP/VAD
+        if self.gain_db != 0.0:
+            mono = mono * (10.0 ** (self.gain_db / 20.0))
+
+        # Auto-normalize signal level so quiet mics (e.g. SteelSeries Sonar)
+        # reach healthy dynamic range (-18 to -9 dBFS) instead of being buried in noise floor
+        if self.normalize_audio and mono.size:
+            raw_peak = float(np.max(np.abs(mono)))
+            if raw_peak > 0.0003:  # Above silence/room hiss
+                target_peak = 0.35  # ~ -9 dBFS optimal working level
+                desired_gain = min(target_peak / raw_peak, 20.0)  # up to +26 dB boost
+                self._auto_gain = 0.85 * self._auto_gain + 0.15 * desired_gain
+            else:
+                self._auto_gain = 0.98 * self._auto_gain + 0.02 * 1.0
+            mono = mono * self._auto_gain
+
+        # Process denoise and presence filter on properly leveled audio
         if self._denoiser is not None and self._denoiser.is_ready:
             mono = self._denoiser.process(mono)
         if self._dsp is not None:
             mono = self._dsp.process(mono)
-        if self.gain_db != 0.0:
-            mono = mono * (10.0 ** (self.gain_db / 20.0))
+
         if mono.size:
             rms = float(np.sqrt(np.mean(mono * mono)))
             peak = float(np.max(np.abs(mono)))

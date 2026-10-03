@@ -243,9 +243,10 @@ class WhisperEngine:
             raise ValueError("Whisper expects nonempty mono int16 PCM at 16000 Hz")
         audio = pcm.astype(np.float32, copy=False) / 32768.0
         peak = float(np.max(np.abs(audio)))
-        if 0.02 < peak < 0.65:
-            audio = audio * min(0.8 / peak, 3.5)
-        elif peak > 0.92:
+        if peak > 1e-4:
+            scale = min(0.70 / peak, 50.0)
+            audio = audio * scale
+        elif peak > 0.95:
             audio = audio * (0.85 / peak)
 
         prompt = None

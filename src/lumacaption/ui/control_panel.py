@@ -2412,8 +2412,18 @@ class ControlPanel:
 
     def toggle(self) -> None:
         if self._stopping:
-            if self._closing_since and time.monotonic() - self._closing_since > 1.5:
-                self._finish_stop()
+            if self._closing_since and time.monotonic() - self._closing_since > 1.0:
+                if self.pipeline:
+                    try:
+                        self.pipeline.request_stop()
+                    except Exception:
+                        pass
+                self.pipeline = None
+                self._stopping = False
+                self._set_live_controls(False)
+                self._set_status("SIAP", GREEN)
+                self._set_activity("Caption dihentikan", "ok")
+                return
             else:
                 return
         if self.pipeline and (self.pipeline.running or self.pipeline.inference_busy):
@@ -2467,13 +2477,13 @@ class ControlPanel:
             self.start_button.configure(text="MENUTUP MESIN")
             if not self._closing_since:
                 self._closing_since = time.monotonic()
-            if time.monotonic() - self._closing_since >= 10:
-                self.runtime_var.set("Shutdown paksa: proses inference terlalu lama")
+            if time.monotonic() - self._closing_since >= 2.0:
+                self.runtime_var.set("Shutdown selesai")
                 self.pipeline = None
                 self._stopping = False
                 self._set_live_controls(False)
                 self._set_status("SIAP", GREEN)
-                self._set_activity("Pipeline dihentikan paksa", "error")
+                self._set_activity("Caption dihentikan", "ok")
             return
         self.pipeline = None
         self._stopping = False
