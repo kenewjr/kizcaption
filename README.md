@@ -1,144 +1,193 @@
 # KizCaption
 
-Companion live subtitle offline multibahasa ringan untuk OBS Studio. Suara mikrofon ditranskripsi lokal, diterjemahkan ke maksimal tiga bahasa secara simultan, lalu ditampilkan langsung lewat OBS **Browser Source**. 100% offline tanpa API cloud berbayar, tanpa OBS WebSocket plugin tambahan, dan hemat resource.
+A lightweight, 100% offline, multilingual live subtitle and translation companion for OBS Studio. Microphone audio is captured locally, transcribed in real time, simultaneously translated into up to three target languages, and rendered cleanly in OBS Studio via standard **Browser Sources**. Completely offline with no paid cloud APIs, no external OBS plugins required, and ultra-low resource overhead.
 
 ![KizCaption Logo](src/lumacaption/assets/kzp_logo.png)
 
-> **Credit**: Dibuat dan dirancang oleh **kenewjr 2026**.  
-> **Identitas Visual**: Logo orisinal teks tipografi **KZP** neon cyan & ultraviolet (bebas hak cipta).
+> **Credits**: Designed and engineered by **kenewjr 2026**.  
+> **Visual Identity**: Original **KZP** neon cyan & ultraviolet typography badge (original, royalty-free).
 
 ---
 
-## Arsitektur Pipeline Lokal
+## Local Pipeline Architecture
 
 ```text
-Mikrofon Windows → 16 kHz Mono → Silero VAD v5 → Faster-Whisper → NLLB-200 INT8 → Browser Source OBS
+Microphone (WASAPI) → 16 kHz Mono → Silero VAD v5 → Faster-Whisper → Meta NLLB-200 INT8 → OBS Browser Source
 ```
 
-- **Zero-Latency Pause Detection**: Deteksi jeda hening pintar Silero VAD hanya mengirim audio setelah pembicara selesai berbicara, tanpa memotong kata. Audio hening tidak membebani komputasi STT/MT.
-- **Server Overlay WebSocket**: Port lokal mandiri (`127.0.0.1:8765`), tetap aktif saat caption dihentikan sehingga Browser Source di OBS tidak perlu disambung ulang (*zero reconnect penalty*).
-- **Batch Translation**: Seluruh 3 bahasa target diterjemahkan dalam satu siklus inferensi batch NLLB yang sangat efisien.
+- **Zero-Latency Pause Detection**: Neural voice activity detection powered by Silero VAD v5 ensures audio segments are dispatched right when speech ends, preserving word boundaries without clipping speech onset. Silent audio consumes zero transcription or translation compute.
+- **Persistent Overlay Server**: Lightweight built-in HTTP and WebSocket server running locally on `127.0.0.1:8765`. Remains active even when speech processing is paused, eliminating OBS browser source reconnect penalties.
+- **Simultaneous Batch Translation**: Up to 3 target languages are translated in a single batched NLLB-200 inference pass for maximum GPU/CPU efficiency.
 
 ---
 
-## Fitur Unggulan KizCaption (v1.0.0)
+## Key Features (v1.0.0)
 
-### 1. Struktur Antarmuka 6 Tab Bersih (Tanpa Duplikasi)
-Antarmuka pengguna tertata rapi menggunakan sistem tab Tkinter modern:
-- **Tab 1 — Monitor & Pengaturan Cepat**:
-  - Live Audio VU Meter responsif (RMS dBFS, PEAK dBFS, VAD Indicator).
-  - Pilihan mikrofon & pengatur sensitivitas Volume Gain (dB).
-  - Monitor teks transkripsi suara asli pembicara & 3 slot hasil terjemahan.
-- **Tab 2 — Mesin & VAD**:
-  - Pilihan model STT Whisper (`tiny` hingga `large-v3-turbo`), perangkat (`auto`, `cuda`, `cpu`), dan beam size.
-  - Pilihan model MT NLLB-200, perangkat, beam size, dan batas thread CPU.
-  - Parameter Silero VAD (ambang probabilitas suara, jeda hening ms, batas durasi kalimat).
-  - Sensor Kata Kasar Otomatis (TOS Safe) dan normalisasi slang streamer.
-  - Saluran audio (mix/left/right), normalisasi otomatis sinyal pelan, dan port overlay.
-- **Tab 3 — Gaya Caption (3 Profil & Live In-App Preview)**:
+### 1. Clean 6-Tab Interface (Zero Redundancy)
+A sleek, categorized Tkinter desktop dashboard:
+- **Tab 1 — Monitor & Quick Setup**:
+  - Live audio VU meters (RMS dBFS, Peak dBFS, active VAD indicator).
+  - Microphone selector, quick language targets, and software Volume Gain (dB) slider.
+  - Live transcription stream and 3 real-time translation slot monitors.
+- **Tab 2 — Engine & VAD**:
+  - Speech-to-Text (STT) model selector (`tiny` up to `large-v3-turbo`), device selection (`auto`, `cuda`, `cpu`), and beam size.
+  - Machine Translation (MT) NLLB-200 model, compute type, beam size, and CPU thread limits.
+  - Silero VAD fine-tuning (speech probability threshold, silence hangover ms, max utterance duration).
+  - Automated profanity censorship filter (TOS-Safe) and gamer/streamer slang normalizer.
+- **Tab 3 — Caption Style (3 Profiles & Live In-App Preview)**:
   - 1-Click Platform Safe-Zone Presets (YouTube 1080p, Twitch, TikTok Live 9:16 portrait).
-  - Konfigurasi independen untuk Slot 1, Slot 2, dan Slot 3.
-  - **Live In-App Caption Preview**: Pratinjau kanvas langsung di dalam aplikasi untuk melihat hasil font, warna, outline, glow neon, dan background tanpa membuka browser luar.
-  - Fitur **Impor CSS** dan **Ekspor CSS** per profil.
-- **Tab 4 — Model & Resource**:
-  - Inspeksi hardware otomatis (GPU, VRAM bebas, RAM sistem, jumlah core CPU).
-  - Estimasi kebutuhan VRAM, RAM, dan disk untuk tiap model.
-  - Download manager lokal dengan tombol unduh, cek status, dan progress bar.
+  - Independent customization for Slot 1, Slot 2, and Slot 3.
+  - **Live In-App Caption Preview**: Real-time canvas preview rendering fonts, colors, outlines, neon glow, and backgrounds without opening an external browser.
+  - CSS Import & Export support for every profile.
+- **Tab 4 — Models & Resources**:
+  - Automated hardware inspection (detected GPU, free VRAM, total RAM, CPU thread count).
+  - VRAM/RAM safety checks and disk size requirements for each model.
+  - Background model download manager with animated progress, download speed, and ETA indicators.
 - **Tab 5 — OBS Setup**:
-  - Daftar URL Browser Source untuk Slot 1, 2, 3, dan mode Multi-Bahasa All-in-One.
-  - Tombol Salin URL dan Buka Preview Browser.
-- **Tab 6 — Tentang**:
-  - Informasi versi KizCaption v1.0.0, tombol Cek Pembaruan GitHub, logo KZP, lisensi komponen, dan credit `by kenewjr 2026`.
+  - Ready-to-copy Browser Source URLs for Slot 1, Slot 2, Slot 3, and All-in-One Multi-Language modes.
+  - One-click "Copy URL" and "Open in Browser" buttons with real-time client connection diagnostics.
+- **Tab 6 — About**:
+  - Version info (v1.0.0), one-click GitHub Update Checker, KZP branding, license attributions, and `by kenewjr 2026` credit.
 
-### 2. Tampilan Scrollbar Modern & Dukungan Tema Gelap / Terang
-- Scrollbar ramping minimalis (8px) dengan sudut membulat, tanpa panah atas/bawah kuno.
-- Warna scrollbar otomatis menyatu dengan latar belakang tema aktif:
-  - **Mode Gelap**: Background `#080B14`, thumb `#252F49`, aksen hover `#806CFF`.
-  - **Mode Terang**: Background `#F1F4F9`, thumb `#CBD5E1`, aksen hover `#6366F1`.
-- Navigasi mousewheel cerdas: scrolling bekerja mulus tanpa macet.
+### 2. Modern Custom Scrollbars & Dark/Light Theme
+- Slim, elegant 8px custom scrollbars with rounded thumbs and no antiquated arrow buttons.
+- Harmonious color schemes:
+  - **Dark Mode**: Background `#080B14`, thumb `#252F49`, hover `#806CFF`.
+  - **Light Mode**: Background `#F1F4F9`, thumb `#CBD5E1`, hover `#6366F1`.
+- Intelligent mousewheel event routing: avoids hijacking scroll events inside text boxes and treeviews.
 
-### 3. 30 Preset Gaya Caption Modern (Dari Imut hingga Keren)
-Tersedia 30 preset visual siap pakai dalam 6 kategori:
+### 3. Exactly 30 Modern Caption Presets
+Pre-tuned aesthetic presets across 6 distinct categories:
 - **Minimal**: `Clean White`, `Studio Subtitle`, `Mono Console`, `Bold Contrast`, `Soft Shadow`.
-- **Anime / VTuber (Imut & Kawaii)**:
-  - `Sakura`: Merah muda bunga sakura manis dengan pastel pink glow `#FB7185`.
-  - `Lavender Glow`: Magical girl dreamy aesthetic dengan neon violet glow `#C084FC`.
-  - `Candy Pop`: Warna ceria permen vanila `#FEF08A` & stroberi pop `#DB2777`.
-  - `Pastel Mint`: Matcha & mint milkshake segar dengan aksen teal lembut.
-  - `Manga Stroke`: Komik shonen ekspresif dengan outline tebal 5px dan shadow 3D pop.
+- **Anime / VTuber (Cute & Aesthetic)**:
+  - `Sakura`: Soft cherry blossom pink with pastel glow `#FB7185`.
+  - `Lavender Glow`: Dreamy magical girl neon violet glow `#C084FC`.
+  - `Candy Pop`: Sweet vanilla `#FEF08A` and strawberry pop `#DB2777`.
+  - `Pastel Mint`: Refreshing matcha & mint milkshake with soft teal accents.
+  - `Manga Stroke`: Shonen manga style with 5px black outline and pop 3D shadow.
 - **Card**: `Midnight Card`, `Glass Lite`, `Rounded Slate`, `Paper Light`, `Compact Pill`.
 - **Broadcast**: `Lower Third`, `News Accent`, `Sport Strip`, `Interview`, `Documentary`.
-- **Neon (Keren & Cyberpunk)**:
-  - `Cyber Violet`: Cyberpunk 2077 Night City dengan radial glow magenta `#D946EF`.
-  - `Cyan Edge`: Tron Sci-Fi HUD electric ice cyan dengan glow blue `#06B6D4`.
-  - `Electric Lime`: Terminal hacker matrix dengan glow lime emerald `#10B981`.
-  - `Synthwave`: 80s outrun sunset gradient purple `#2E1065` ke `#701A75` ber-border pink.
-  - `Sunset Duo`: Gradasi hangat magenta-oranye dengan outline tajam.
+- **Neon (Cyberpunk & Glow)**:
+  - `Cyber Violet`: Night City aesthetic with intense radial magenta glow `#D946EF`.
+  - `Cyan Edge`: Tron Sci-Fi HUD electric ice cyan with blue glow `#06B6D4`.
+  - `Electric Lime`: Terminal hacker matrix green with emerald glow `#10B981`.
+  - `Synthwave`: 80s outrun sunset purple gradient `#2E1065` to `#701A75` with pink outline.
+  - `Sunset Duo`: Warm magenta-orange gradient with razor-sharp borders.
 - **Creative**: `Retro Mono`, `Comic Bubble`, `Gradient Ribbon`, `Elegant Serif`, `Stream Badge`.
 
 ---
 
-## Persyaratan Sistem
+## System Requirements
 
-- **Sistem Operasi**: Windows 10 atau Windows 11 (64-bit)
-- **Python**: 3.11, 3.12, atau 3.14
-- **OBS Studio**: Versi 28 ke atas (dilengkapi Browser Source)
-- **Kartu Grafis (Opsional)**: NVIDIA RTX Seri 20/30/40/50 dengan VRAM 4 GB+ untuk akselerasi CUDA penuh. Fallback ke CPU otomatis bekerja jika CUDA tidak tersedia.
+- **Operating System**: Windows 10 or Windows 11 (64-bit)
+- **Python**: 3.11, 3.12, or 3.14 (if running from source)
+- **OBS Studio**: Version 28.0 or newer (supports standard Browser Source)
+- **Graphics Card (Optional but Recommended)**: NVIDIA RTX 20/30/40/50 series with 4 GB+ VRAM for full CUDA acceleration. Automatic, graceful fallback to CPU is built-in.
 
 ---
 
-## Cara Menjalankan
+## Installation & Launch
 
-### Opsi A: Menggunakan Source Python
+### Option A: Standalone .EXE (No Python Installation Required)
+1. Download `KizCaption-windows-x64.zip` from the [GitHub Releases](https://github.com/kenewjr/kizcaption/releases) page.
+2. Extract the archive to any folder on your computer.
+3. Double-click `KizCaption.exe`. All AI runtimes, models, and NVIDIA CUDA DLLs are bundled.
+
+### Option B: Running from Source
 ```powershell
-# 1. Clone repository & buat virtual environment
+# 1. Clone the repository & create virtual environment
+git clone https://github.com/kenewjr/kizcaption.git
+cd kizcaption
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 
-# 2. Install dependensi inti
+# 2. Install core dependencies
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
-# 3. (Opsional) Install akselerasi GPU NVIDIA CUDA 12:
+# 3. (Optional) Install NVIDIA GPU CUDA 12 acceleration:
 .\.venv\Scripts\python.exe -m pip install -r requirements-gpu.txt
 
-# 4. Jalankan aplikasi
+# 4. Launch the application
 .\.venv\Scripts\python.exe main.py
-# Atau cukup klik ganda file start.bat
+# Or simply double-click start.bat
 ```
 
-### Opsi B: Standalone .EXE (Tanpa Instalasi Python)
-1. Unduh rilis paket `KizCaption-windows-x64.zip` dari halaman Releases GitHub.
-2. Ekstrak file zip ke folder mana saja.
-3. Jalankan `KizCaption.exe`. Semua dependensi AI dan DLL CUDA sudah terbundel mandiri.
+---
+
+## Step-by-Step In-App User Guide
+
+Follow this quick walkthrough after launching KizCaption for the first time:
+
+### Step 1: Verify & Download AI Models (Tab 4 — Models & Resources)
+1. Open the application and switch to **Tab 4 (Models & Resources)**.
+2. Review the **System Hardware Status** card at the top. The app detects your GPU model, free VRAM, and total system RAM.
+3. Check the **Model Status** list:
+   - **Silero VAD**: Included out-of-the-box (`models/silero_vad.onnx`).
+   - **Whisper STT**: Recommended starting model is `base` or `small` for balanced speed and accuracy. Click **Download** if not yet installed.
+   - **NLLB-200 MT**: Click **Download** to retrieve the distilled 600M translation model (~600 MB).
+4. Watch the progress bar, download speed (e.g. `⚡ 12.4 MB/s`), and ETA indicator. Once status reads **Ready / Local**, proceed to the next step.
+
+### Step 2: Select Microphone & Adjust Audio Levels (Tab 1 — Monitor)
+1. Switch to **Tab 1 (Monitor & Quick Setup)**.
+2. In the **Audio Input** dropdown, select your active microphone (e.g., `Microphone (Realtek Audio)` or virtual audio device).
+3. Speak into your microphone and observe the **RMS and Peak dBFS meters**:
+   - The VU meter will light up in real time.
+   - Adjust the **Volume Gain (dB)** slider if your microphone signal is too quiet or clipping. Aim for normal speech to peak in the `-18 dBFS` to `-6 dBFS` range.
+
+### Step 3: Choose Languages & Translation Targets (Tab 1 & Tab 2)
+1. In **Tab 1**, set your **Spoken Language** (e.g., `Indonesian` or `English`).
+2. Configure your **Translation Target Slots**:
+   - **Slot 1**: Primary translation (e.g., `English`).
+   - **Slot 2**: Secondary translation (e.g., `Japanese`).
+   - **Slot 3**: Tertiary translation (e.g., `Javanese`, `Sundanese`, or keep disabled).
+   - Toggle the checkbox next to each slot to enable or disable it.
+3. *(Optional)* Switch to **Tab 2 (Engine & VAD)** to toggle:
+   - **Profanity Filter (TOS-Safe)**: Automatically masks inappropriate language with asterisks (`***`).
+   - **Slang Normalization**: Automatically converts informal stream jargon into clean standard vocabulary.
+
+### Step 4: Pick Caption Styles & Layout (Tab 3 — Caption Style)
+1. Switch to **Tab 3 (Caption Style)**.
+2. Select which slot to customize: **Profile 1**, **Profile 2**, or **Profile 3**.
+3. Choose a preset from the **Style Preset** dropdown (e.g., `Cyber Violet`, `Sakura`, `Clean White`, or `Studio Subtitle`).
+4. Review the **Live In-App Caption Preview** canvas on the right to see fonts, colors, stroke widths, and semi-transparent cards update instantly.
+5. Click **Apply Platform Safe-Zones** to automatically align captions safely for **YouTube (1080p)**, **Twitch**, or **TikTok Live (9:16 vertical)**.
+
+### Step 5: Add Browser Source to OBS Studio (Tab 5 — OBS Setup)
+1. Open **OBS Studio**.
+2. Switch to **Tab 5 (OBS Setup)** in KizCaption.
+3. Click **Copy URL** next to your preferred layout:
+   - **All-in-One Multi-Language**: `http://127.0.0.1:8765/overlay.html` (Displays all active translation slots stacked).
+   - **Individual Slots**: `http://127.0.0.1:8765/overlay?profile=1` (Custom standalone placement for Slot 1).
+4. In OBS Studio under **Sources**, click `+` → **Browser**.
+5. Give the source a name (e.g., `KizCaption Subtitles`) and click **OK**.
+6. In the Browser Source properties:
+   - **URL**: Paste the copied URL (`http://127.0.0.1:8765/overlay.html`).
+   - **Width**: `1920` (or `1080` for TikTok vertical).
+   - **Height**: `300` (or `1920` for vertical layout).
+   - Leave "Shutdown source when not visible" unchecked.
+7. Click **OK**.
+
+### Step 6: Start Live Subtitling & Stream! (Tab 1 — Monitor)
+1. Return to **Tab 1 (Monitor & Quick Setup)** in KizCaption.
+2. Click the big green button: **Start Subtitles (Mulai Caption)**.
+3. Speak into your microphone.
+4. Watch your words transcribe and translate instantly in the app monitor, while simultaneously rendering smoothly in your OBS Studio broadcast screen!
+5. To stop, simply click **Stop Subtitles**. Your OBS connection stays alive without breaking.
 
 ---
 
-## Panduan Setup OBS Browser Source
+## Check for Updates
 
-1. Buka **KizCaption**, pilih mikrofon Anda, dan klik **Mulai Caption**.
-2. Masuk ke **Tab 6 — OBS Setup**.
-3. Salin salah satu URL Browser Source:
-   - **Multi-Bahasa Sekaligus (All-in-One)**: Menampilkan 3 bahasa target bertumpuk rapi dalam 1 layer browser source:
-     ```text
-     http://127.0.0.1:8765/overlay.html
-     ```
-   - **Per Profil Slot**:
-     ```text
-     http://127.0.0.1:8765/overlay?profile=1
-     http://127.0.0.1:8765/overlay?profile=2
-     http://127.0.0.1:8765/overlay?profile=3
-     ```
-4. Di OBS Studio, tambahkan **Browser Source** baru pada Sources.
-5. Tempelkan (*paste*) URL tersebut.
-6. Atur resolusi Browser Source ke `1920 × 300` (atau sesuaikan dengan kebutuhan scene Anda).
-7. Selesai! Caption live akan langsung muncul secara otomatis saat Anda berbicara di mikrofon.
-8. **Diagnostik Live**: Tab OBS Setup menampilkan status koneksi secara real-time (jumlah Browser Source yang tersambung dan waktu transmisi caption terakhir).
+To ensure you have the latest performance patches and feature additions:
+1. Open **Tab 6 (About)**.
+2. Click the **Check for Updates** button.
+3. KizCaption queries GitHub Releases. If an update is found, a prompt will provide release notes and a direct download link.
 
 ---
 
-## Lisensi & Atribusi
+## License & Attributions
 
-- **KizCaption UI & Pipeline**: Hak cipta © 2026 **kenewjr**.
-- **Faster-Whisper**: Lisensi MIT (OpenAI Whisper & Syllable/CTranslate2).
-- **Silero VAD**: Lisensi MIT.
-- **NLLB-200-distilled-600M**: Lisensi Meta CC-BY-NC 4.0 (Non-komersial).
+- **KizCaption Application & UI Pipeline**: Copyright © 2026 **kenewjr**.
+- **Faster-Whisper**: MIT License (CTranslate2 & OpenAI Whisper).
+- **Silero VAD**: MIT License.
+- **Meta NLLB-200**: Meta CC-BY-NC 4.0 License.
