@@ -106,15 +106,47 @@ def ensure_workspace(directory: Path) -> list[str]:
     return warnings
 
 
+def setup_logging(directory: Path) -> logging.Logger:
+    logs_dir = directory / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    logger = logging.getLogger("lumacaption")
+    logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    for filename in ("kizcaption.log", "diagnostic.log"):
+        log_path = logs_dir / filename
+        handler = RotatingFileHandler(log_path, maxBytes=5_242_880, backupCount=3, encoding="utf-8")
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    import platform
+    logger.info("=" * 65)
+    logger.info("KIZCAPTION SESSION STARTED (v1.0.2)")
+    logger.info(f"Platform: {platform.platform()} | Python: {sys.version.split()[0]}")
+    logger.info(f"Executable: {sys.executable} | App Dir: {directory}")
+    try:
+        from lumacaption.model_manager import hardware_info
+        hw = hardware_info()
+        logger.info(f"Hardware: GPU={hw.get('gpu_name')}, VRAM={hw.get('vram_mib')} MiB, RAM={hw.get('ram_total_mib')} MiB, CPU Cores={hw.get('cpu_cores')}")
+    except Exception as e:
+        logger.debug(f"Hardware info query: {e}")
+    logger.info("=" * 65)
+    return logger
+
+
 def main() -> None:
     root = tk.Tk()
     root.withdraw()
+    logger = None
     try:
         directory = app_directory()
+        logger = setup_logging(directory)
         warnings = ensure_workspace(directory)
-        handler = RotatingFileHandler(directory / "logs" / "diagnostic.log", maxBytes=1_048_576, backupCount=3, encoding="utf-8")
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-        logging.getLogger("lumacaption").addHandler(handler)
         store = ConfigStore(directory / "config.json")
         config, warning = store.load()
         panel = ControlPanel(root, store, config, directory)
@@ -125,14 +157,28 @@ def main() -> None:
         def on_close() -> None:
             try:
                 panel.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                if logger:
+                    logger.warning(f"Error closing panel: {exc}")
+            if logger:
+                logger.info("=" * 65)
+                logger.info("KIZCAPTION SESSION ENDED CLEANLY")
+                logger.info("=" * 65)
+                for h in list(logger.handlers):
+                    try:
+                        h.flush()
+                        h.close()
+                        logger.removeHandler(h)
+                    except Exception:
+                        pass
             root.destroy()
 
         root.protocol("WM_DELETE_WINDOW", on_close)
         root.deiconify()
         root.mainloop()
     except Exception as exc:
+        if logger:
+            logger.exception(f"KizCaption startup crash: {exc}")
         root.withdraw()
         messagebox.showerror("KizCaption startup error", str(exc), parent=root)
         root.destroy()

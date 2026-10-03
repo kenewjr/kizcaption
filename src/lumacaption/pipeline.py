@@ -5,11 +5,14 @@ from collections.abc import Callable
 import ctypes
 from dataclasses import dataclass
 import gc
+import logging
 from pathlib import Path
 import queue
 import sys
 import threading
 import time
+
+logger = logging.getLogger("lumacaption.pipeline")
 
 from lumacaption.audio.capture import MicrophoneCapture
 from lumacaption.audio.vad import SileroOnnx, UtteranceTooLongError, VadSegmenter
@@ -74,6 +77,17 @@ class CaptionPipeline:
         return bool(self._worker and self._worker.is_alive())
 
     def _emit(self, kind: str, message: str, data: dict | None = None) -> None:
+        try:
+            if kind == "error":
+                logger.error(f"[{kind}] {message}")
+            elif kind == "warning":
+                logger.warning(f"[{kind}] {message}")
+            elif kind in {"model_ready", "started", "published", "transcript", "translations", "learning"}:
+                logger.info(f"[{kind}] {message}")
+            else:
+                logger.debug(f"[{kind}] {message}")
+        except Exception:
+            pass
         try:
             self.on_event(PipelineEvent(kind, message, data))
         except Exception:
@@ -196,7 +210,7 @@ class CaptionPipeline:
                 status,
             )
 
-        utterances: queue.Queue = queue.Queue(maxsize=2)
+        utterances: queue.Queue = queue.Queue(maxsize=8)
         self._utterances = utterances
         target_names = [target.language for target in self.config.targets]
         publish_tasks: set[asyncio.Task] = set()
@@ -460,6 +474,8 @@ class CaptionPipeline:
                     async for frame in capture.frames():
                         if self._stop_requested.is_set():
                             break
+                        if self._worker and not self._worker.is_alive():
+                            break
                         was_speaking = bool(getattr(vad, "speaking", False))
                         utterance = vad.process(frame)
                         now = time.monotonic()
@@ -478,6 +494,8 @@ class CaptionPipeline:
                             self._emit("speech", "Suara terdeteksi")
                         if utterance is None:
                             continue
+                        if self._worker and not self._worker.is_alive():
+                            break
                         seconds = len(utterance) / 16_000
                         self._emit(
                             "queued",

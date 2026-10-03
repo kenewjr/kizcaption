@@ -185,10 +185,14 @@ class WhisperEngine:
         # 4. If not available locally or incomplete, download from Hugging Face
         if not path or not complete(path):
             self.on_warning(f"Mengunduh model Whisper {self.model_size} dari HuggingFace...")
-            path = download_model(target, cache_dir=self.model_cache)
+            try:
+                from lumacaption.model_manager import ensure_model
+                path = str(ensure_model(self.model_size, Path(self.model_cache)))
+            except Exception:
+                path = download_model(target, cache_dir=self.model_cache)
 
         if not complete(path):
-            raise RuntimeError(f"Cache Whisper {self.model_size} belum lengkap")
+            raise RuntimeError(f"Cache Whisper '{self.model_size}' belum lengkap; silakan unduh model ini di Tab 'Model & Resource'")
         return path
 
     def _load_next(self) -> None:

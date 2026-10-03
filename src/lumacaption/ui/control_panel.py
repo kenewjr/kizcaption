@@ -1299,7 +1299,35 @@ class ControlPanel:
         ttk.Button(btn_row, text=self.t("btn_open_config_folder"), command=lambda: self._open_dir(self.app_dir)).pack(side="left", padx=4)
         ttk.Button(btn_row, text=self.t("btn_open_models_folder"), command=lambda: self._open_dir(self.app_dir / "models")).pack(side="left", padx=4)
         ttk.Button(btn_row, text=self.t("btn_open_logs_folder"), command=lambda: self._open_dir(self.app_dir / "logs")).pack(side="left", padx=4)
+        ttk.Button(btn_row, text="📋 Salin Log Error" if not is_en else "📋 Copy Error Log", command=self._copy_recent_logs).pack(side="left", padx=4)
         ttk.Button(btn_row, text=self.t("btn_check_updates"), command=self.check_for_updates_ui).pack(side="left", padx=4)
+
+    def _copy_recent_logs(self) -> None:
+        log_files = [self.app_dir / "logs" / "kizcaption.log", self.app_dir / "logs" / "diagnostic.log"]
+        content = ""
+        for lf in log_files:
+            if lf.is_file():
+                try:
+                    with open(lf, "r", encoding="utf-8", errors="replace") as f:
+                        lines = f.readlines()
+                        content = "".join(lines[-100:])
+                        if content.strip():
+                            break
+                except Exception:
+                    pass
+        is_en = (getattr(self.config, "ui_language", "id") == "en")
+        if content:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(content)
+            messagebox.showinfo(
+                "Log Disalin" if not is_en else "Logs Copied",
+                "Log sistem terbaru berhasil disalin ke clipboard!\nAnda dapat menempelkan (paste) log ini untuk dikirim ke developer (kenewjr)."
+                if not is_en else
+                "Recent system logs copied to clipboard!\nYou can paste and send this log to developer (kenewjr).",
+                parent=self.root,
+            )
+        else:
+            self._open_dir(self.app_dir / "logs")
 
     def check_for_updates_ui(self) -> None:
         self._set_activity("Memeriksa pembaruan rilis GitHub…", "working")
@@ -2489,6 +2517,29 @@ class ControlPanel:
         config = self.save(announce=False)
         if not config or not self._sync_overlay(show_error=True):
             return
+
+        model_name = config.whisper_model
+        if model_name in CATALOG:
+            cache = cache_for(self.app_dir, model_name)
+            state, _ = inspect_model(model_name, cache)
+            if state != "Tersedia lokal":
+                is_en = (getattr(config, "ui_language", "id") == "en")
+                msg = (
+                    f"Model '{model_name}' belum diunduh ke disk (~{CATALOG[model_name].disk_mib:.0f} MiB).\n\n"
+                    f"Silakan unduh model ini terlebih dahulu melalui Tab 'Model & Resource'."
+                    if not is_en else
+                    f"Model '{model_name}' has not been downloaded yet (~{CATALOG[model_name].disk_mib:.0f} MiB).\n\n"
+                    f"Please download it first in 'Model & Resource' tab."
+                )
+                messagebox.showwarning(
+                    "Model Belum Tersedia" if not is_en else "Model Missing",
+                    msg,
+                    parent=self.root,
+                )
+                if hasattr(self, "notebook") and hasattr(self, "tab_models"):
+                    self.notebook.select(self.tab_models)
+                return
+
         self._pipeline_error = None
         self._processing = False
         self._closing_since = 0.0
