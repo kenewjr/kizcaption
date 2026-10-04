@@ -24,6 +24,16 @@ copy /y "models\silero_vad.onnx" "dist\KizCaption\models\" >nul
 copy /y "vocabulary.json" "dist\KizCaption\" >nul
 copy /y "config.example.json" "dist\KizCaption\" >nul
 
+if exist "dist\KizCaption\_internal\nvidia\cublas\bin\cublas64_12.dll" (
+    copy /y "dist\KizCaption\_internal\nvidia\cublas\bin\cublas64_12.dll" "dist\KizCaption\" >nul
+    copy /y "dist\KizCaption\_internal\nvidia\cublas\bin\cublasLt64_12.dll" "dist\KizCaption\" >nul
+    echo [GPU] cublas64_12.dll dan cublasLt64_12.dll berhasil disalin ke folder KizCaption!
+) else if exist ".venv\Lib\site-packages\nvidia\cublas\bin\cublas64_12.dll" (
+    copy /y ".venv\Lib\site-packages\nvidia\cublas\bin\cublas64_12.dll" "dist\KizCaption\" >nul
+    copy /y ".venv\Lib\site-packages\nvidia\cublas\bin\cublasLt64_12.dll" "dist\KizCaption\" >nul
+    echo [GPU] cublas64_12.dll dan cublasLt64_12.dll berhasil disalin dari .venv!
+)
+
 echo.
 echo ======================================================
 echo  BUILD SUKSES!

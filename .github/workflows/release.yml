@@ -78,6 +78,18 @@ jobs:
               Copy-Item -Force "src/lumacaption/assets/vocabulary.json" "dist/KizCaption/vocabulary.json"
           }
 
+          # Double failsafe: ensure CUDA 12 DLLs are placed directly in dist root for instant out-of-the-box GPU detection
+          $cublas = Get-ChildItem -Path "dist/KizCaption" -Recurse -Filter "cublas64_12.dll" | Select-Object -First 1
+          if ($cublas) {
+              Write-Host "CUDA DLL verified: $($cublas.FullName)"
+              Copy-Item -Force $cublas.FullName "dist/KizCaption/"
+              $cublasLt = Get-ChildItem -Path "dist/KizCaption" -Recurse -Filter "cublasLt64_12.dll" | Select-Object -First 1
+              if ($cublasLt) { Copy-Item -Force $cublasLt.FullName "dist/KizCaption/" }
+          } else {
+              Write-Error "ERROR: cublas64_12.dll was not bundled into dist/KizCaption! Check requirements-gpu.txt installation."
+              exit 1
+          }
+
       - name: Archive Release Package
         shell: powershell
         run: |
