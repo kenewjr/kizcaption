@@ -147,13 +147,6 @@ def setup_logging(directory: Path, timestamp: str | None = None) -> logging.Logg
     if not timestamp:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    levels = [
-        ("debug", logging.DEBUG),
-        ("info", logging.INFO),
-        ("warning", logging.WARNING),
-        ("error", logging.ERROR),
-    ]
-
     import platform
     from lumacaption import __version__
 
@@ -173,22 +166,20 @@ def setup_logging(directory: Path, timestamp: str | None = None) -> logging.Logg
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    for level_name, level_code in levels:
-        filename = f"{level_name}log-{timestamp}.log"
-        log_path = logs_dir / filename
-        header_text = "\n".join(
-            f"{now_str} [{level_name.upper()}] [lumacaption] {line}" for line in banner_lines
-        ) + "\n"
-        try:
-            log_path.write_text(header_text, encoding="utf-8")
-        except Exception:
-            pass
+    filename = f"kizcaption-{timestamp}.log"
+    log_path = logs_dir / filename
+    header_text = "\n".join(
+        f"{now_str} [INFO] [lumacaption] {line}" for line in banner_lines
+    ) + "\n"
+    try:
+        log_path.write_text(header_text, encoding="utf-8")
+    except Exception:
+        pass
 
-        handler = RotatingFileHandler(log_path, mode="a", maxBytes=5_242_880, backupCount=3, encoding="utf-8")
-        handler.setLevel(level_code)
-        handler.addFilter(LevelFilter(level_code))
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    handler = RotatingFileHandler(log_path, mode="a", maxBytes=10_485_760, backupCount=5, encoding="utf-8")
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
     return logger
 
