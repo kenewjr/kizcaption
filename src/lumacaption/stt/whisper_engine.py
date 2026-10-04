@@ -125,11 +125,13 @@ class WhisperEngine:
 
     def _build_candidates(self) -> list[tuple[str, str]]:
         configure_cuda_runtime()
-        import ctranslate2
+        from lumacaption.gpu_runtime import is_cuda_available
 
-        wants_cuda = self.requested_device == "cuda" or (
-            self.requested_device == "auto" and ctranslate2.get_cuda_device_count() > 0
-        )
+        cuda_ok = is_cuda_available()
+        if self.requested_device == "cuda" and not cuda_ok:
+            self.on_warning("CUDA diminta namun library CUDA (cublas64_12.dll) tidak tersedia; dialihkan ke CPU")
+
+        wants_cuda = (self.requested_device in ("cuda", "auto")) and cuda_ok
         candidates: list[tuple[str, str]] = []
         if wants_cuda:
             candidates.append((self.model_size, "cuda"))

@@ -424,11 +424,17 @@ class NllbEngine:
         self.on_warning(f"NLLB aktif: {device.upper()} ({compute_type})")
 
     def _preferred_device(self) -> str:
-        if self.requested_device != "auto":
-            return self.requested_device
-        import ctranslate2
+        from lumacaption.gpu_runtime import is_cuda_available
 
-        return "cuda" if ctranslate2.get_cuda_device_count() else "cpu"
+        cuda_ok = is_cuda_available()
+        if self.requested_device == "cuda":
+            if not cuda_ok:
+                self.on_warning("CUDA diminta namun library CUDA (cublas64_12.dll) tidak tersedia; NLLB dialihkan ke CPU")
+                return "cpu"
+            return "cuda"
+        if self.requested_device == "auto":
+            return "cuda" if cuda_ok else "cpu"
+        return self.requested_device
 
     def _release(self) -> None:
         if self._translator is not None:

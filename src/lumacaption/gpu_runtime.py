@@ -72,3 +72,29 @@ def configure_cuda_runtime() -> None:
         if "CT2_CUDA_CACHING_ALLOCATOR_CONFIG" not in os.environ:
             os.environ["CT2_CUDA_CACHING_ALLOCATOR_CONFIG"] = "4,3,12,209715200"
         _configured = True
+
+
+def is_cuda_available() -> bool:
+    """Return True only if an NVIDIA GPU is detected AND required cuBLAS DLLs are loadable."""
+    try:
+        import ctranslate2
+        if ctranslate2.get_cuda_device_count() <= 0:
+            return False
+    except Exception:
+        return False
+
+    if sys.platform == "win32":
+        configure_cuda_runtime()
+        import ctypes
+        loaded = False
+        for dll_name in ("cublas64_12.dll", "cublas64_11.dll"):
+            try:
+                ctypes.CDLL(dll_name)
+                loaded = True
+                break
+            except Exception:
+                pass
+        if not loaded:
+            return False
+    return True
+

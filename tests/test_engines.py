@@ -329,6 +329,28 @@ class EngineComputeAndCacheTests(unittest.TestCase):
         self.assertEqual(engine.active_device, "cpu")
         self.assertTrue(any("warmup" in w.lower() for w in warnings))
 
+    def test_whisper_avoids_cuda_candidate_when_dll_missing(self):
+        from lumacaption.stt.whisper_engine import WhisperEngine
+
+        engine = WhisperEngine(
+            model_size="base",
+            device="auto",
+            model_cache=Path("models/whisper"),
+        )
+        with patch("lumacaption.gpu_runtime.is_cuda_available", return_value=False):
+            candidates = engine._build_candidates()
+        self.assertEqual(candidates, [("base", "cpu")])
+
+    def test_nllb_preferred_device_selects_cpu_when_dll_missing(self):
+        engine = NllbEngine(
+            model_id_or_path="mijuanlo/nllb-200-distilled-600M-ct2-int8",
+            device="auto",
+            cache_dir=Path("models/nllb-cache"),
+        )
+        with patch("lumacaption.gpu_runtime.is_cuda_available", return_value=False):
+            device = engine._preferred_device()
+        self.assertEqual(device, "cpu")
+
 
 if __name__ == "__main__":
     unittest.main()
