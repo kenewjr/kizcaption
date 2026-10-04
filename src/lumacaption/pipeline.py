@@ -416,9 +416,9 @@ class CaptionPipeline:
                             gc.collect()
                             last_gc_count = processed_count
                     except ValueError as exc:
-                        if not self._stop_requested.is_set():
-                            self._emit("error", str(exc))
-                        self.request_stop()
+                        if self._stop_requested.is_set():
+                            return
+                        warning(f"Gagal memproses kalimat ({exc}); melanjutkan sesi streaming")
                     except Exception as exc:
                         if self._stop_requested.is_set():
                             return
@@ -519,9 +519,10 @@ class CaptionPipeline:
                             except queue.Full:
                                 pass
                 except UtteranceTooLongError as exc:
-                    self._emit("error", str(exc))
-                    self.request_stop()
-                    return
+                    self._emit("warning", f"{exc}; memotong segmen dan melanjutkan ucapan baru")
+                    if hasattr(vad, "reset"):
+                        vad.reset()
+                    continue
                 except Exception as exc:
                     if self._stop_requested.is_set():
                         break

@@ -255,11 +255,11 @@ class WhisperEngine:
             raise ValueError("Whisper expects nonempty mono int16 PCM at 16000 Hz")
         audio = pcm.astype(np.float32, copy=False) / 32768.0
         peak = float(np.max(np.abs(audio)))
-        if peak > 1e-4:
+        if peak > 0.95:
+            audio = audio * (0.85 / peak)
+        elif peak > 1e-4:
             scale = min(0.70 / peak, 50.0)
             audio = audio * scale
-        elif peak > 0.95:
-            audio = audio * (0.85 / peak)
 
         prompt = None
         if language in ("id", None):
@@ -313,6 +313,11 @@ class WhisperEngine:
             except Exception as exc:
                 last_error = exc
                 failed = f"{self.active_model}/{self.active_device}"
+                err_str = str(exc).lower()
+                is_device_fault = any(kw in err_str for kw in ("cuda", "cudnn", "out of memory", "cublas", "device"))
+                if self.active_device == "cpu" and not is_device_fault:
+                    self.on_warning(f"Whisper CPU inference error on utterance: {exc}")
+                    return Transcript(text="", language=language or "id")
                 self.on_warning(f"Whisper {failed} inference failed: {exc}; falling back")
                 self._release()
                 if self._candidates is not None and self._candidate_index >= len(self._candidates):

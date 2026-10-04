@@ -57,6 +57,8 @@ MODEL_SIZES = (
     "whisper-medium-id",
 )
 NLLB_MODELS = (
+    "nllb",
+    "nllb-1.3b",
     "mijuanlo/nllb-200-distilled-600M-ct2-int8",
     "mijuanlo/nllb-200-distilled-1.3B-int8-ct2",
 )
@@ -296,8 +298,10 @@ class AppConfig:
         source_whisper_code(self.source_language)
         if self.microphone_device is not None and type(self.microphone_device) not in (str, int):
             raise ValueError("Invalid microphone device")
-        if not isinstance(self.nllb_model, str) or not self.nllb_model.strip() or len(self.nllb_model) > 1024:
+        if not isinstance(self.nllb_model, str) or not self.nllb_model.strip():
             raise ValueError("Invalid NLLB model path or repository")
+        if self.nllb_model not in NLLB_MODELS and not Path(self.nllb_model).exists():
+            raise ValueError(f"Unknown NLLB model: {self.nllb_model}")
         if self.overlay.host not in ("127.0.0.1", "localhost", "::1"):
             raise ValueError("Overlay host must stay local")
         if type(self.overlay.port) is not int or not 1 <= self.overlay.port <= 65535:

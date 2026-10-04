@@ -59,6 +59,13 @@ def _find_asset_source(bundled: Path, *rel_candidates: str) -> Path | None:
     return None
 
 
+KNOWN_STOCK_OVERLAY_HASHES = {
+    # Earlier stock overlay builds (64 hex characters)
+    "2a73c293bb357f4fbfb6020a52d1bb0f46de27aca8dbbdd41f661d5e20548a5f",
+    "b6e45454e698695e9103eace0f2f68e90646259787ecd01e55003504c20a856d",
+}
+
+
 def ensure_workspace(directory: Path) -> list[str]:
     """Initialize folders and template files on first launch next to the executable."""
     bundled = bundled_directory()
@@ -85,7 +92,7 @@ def ensure_workspace(directory: Path) -> list[str]:
                 pass
         elif target.name == "overlay.html" and target.read_bytes() != source.read_bytes():
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
-            if digest == "2a73c293bb357f4fbfb6020a52d1bb0f46de27aca8dbbdd41f661d5e20548a5f1":
+            if digest in KNOWN_STOCK_OVERLAY_HASHES:
                 backup = backup_file(target)
                 temporary = target.with_suffix(".html.tmp")
                 shutil.copyfile(source, temporary)

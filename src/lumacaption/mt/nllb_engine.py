@@ -308,7 +308,7 @@ class NllbEngine:
         on_warning: Callable[[str], None] | None = None,
         *,
         compute_type: str = "auto",
-        beam_size: int = 2,
+        beam_size: int = 1,
         cpu_threads: int = 4,
         normalize_slang: bool = True,
     ) -> None:

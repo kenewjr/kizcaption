@@ -379,6 +379,23 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(targets[1].language, "Japanese")
         self.assertEqual(targets[1].profile, 3)
 
+    def test_nllb_model_validation(self):
+        AppConfig(nllb_model="nllb").validate()
+        AppConfig(nllb_model="nllb-1.3b").validate()
+        with self.assertRaises(ValueError):
+            AppConfig(nllb_model="invalid-model-name").validate()
+
+    def test_chinese_traditional_source_nllb_code(self):
+        code = source_nllb_code("Chinese (Traditional)", None)
+        self.assertEqual(code, "zho_Hant")
+
+    def test_known_stock_overlay_hashes_valid_sha256(self):
+        from lumacaption.main import KNOWN_STOCK_OVERLAY_HASHES
+        self.assertTrue(len(KNOWN_STOCK_OVERLAY_HASHES) >= 2)
+        for h in KNOWN_STOCK_OVERLAY_HASHES:
+            self.assertEqual(len(h), 64)
+            int(h, 16)  # must be valid hex
+
 
 if __name__ == "__main__":
     unittest.main()

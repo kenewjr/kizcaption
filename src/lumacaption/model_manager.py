@@ -567,6 +567,7 @@ def model_resource_table_rows(lang: str = "id") -> list[dict[str, str]]:
         "medium",
         "whisper-medium-id",
         "large-v3-turbo",
+        "distil-large-v3",
         "large-v3",
         "nllb",
         "nllb-1.3b",

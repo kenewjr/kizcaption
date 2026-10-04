@@ -173,6 +173,19 @@ class ControlPanel:
         self._scroll_idle_id: str | None = None
         self._focus_idle_id: str | None = None
 
+        # Override report_callback_exception so all unhandled Tkinter UI errors go to logger
+        original_report = getattr(self.root, "report_callback_exception", None)
+        def _log_tk_exception(exc, val, tb):
+            import traceback
+            err_msg = "".join(traceback.format_exception(exc, val, tb))
+            logging.getLogger("lumacaption").error(f"Unhandled Tkinter UI callback error:\n{err_msg}")
+            if callable(original_report) and original_report != _log_tk_exception:
+                try:
+                    original_report(exc, val, tb)
+                except Exception:
+                    pass
+        self.root.report_callback_exception = _log_tk_exception
+
         self._theme_name = getattr(self.config, "ui_theme", "dark")
         if self._theme_name not in PALETTES:
             self._theme_name = "dark"
@@ -2580,6 +2593,22 @@ class ControlPanel:
                     self.notebook.select(self.tab_models)
                 return
 
+        if config.whisper_model == "distil-large-v3" and config.source_language != "English":
+            is_en = (getattr(config, "ui_language", "id") == "en")
+            msg = (
+                "Model 'distil-large-v3' adalah model khusus Bahasa Inggris (English-only)!\n\n"
+                "Untuk bahasa Indonesia atau bahasa lainnya, gunakan model multilingual seperti 'small', 'medium', 'whisper-medium-id', atau 'large-v3-turbo'."
+                if not is_en else
+                "Model 'distil-large-v3' is English-only!\n\n"
+                "For Indonesian or other languages, please select a multilingual model such as 'small', 'medium', 'whisper-medium-id', or 'large-v3-turbo'."
+            )
+            messagebox.showwarning(
+                "Model Khusus Bahasa Inggris" if not is_en else "English-Only Model",
+                msg,
+                parent=self.root,
+            )
+            return
+
         self._pipeline_error = None
         self._processing = False
         self._closing_since = 0.0
@@ -2605,13 +2634,22 @@ class ControlPanel:
             return
         try:
             while True:
-                self._handle_event(self.events.get_nowait())
-        except queue.Empty:
-            pass
-        if self._stopping:
-            self._finish_stop()
-        if not self._closed:
-            self._poll_timer = self.root.after(80, self._poll_events)
+                try:
+                    event = self.events.get_nowait()
+                except queue.Empty:
+                    break
+                try:
+                    self._handle_event(event)
+                except Exception as exc:
+                    logging.getLogger("lumacaption").exception(f"Unhandled error handling pipeline event {event}: {exc}")
+        finally:
+            if self._stopping:
+                try:
+                    self._finish_stop()
+                except Exception:
+                    pass
+            if not self._closed:
+                self._poll_timer = self.root.after(80, self._poll_events)
 
     def _finish_stop(self) -> None:
         if self.pipeline and (self.pipeline.running or self.pipeline.inference_busy):

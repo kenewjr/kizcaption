@@ -61,7 +61,12 @@ def source_whisper_code(choice: str) -> str | None:
 
 
 def source_nllb_code(configured: str, detected: str | None) -> str:
-    code = detected if configured in ("auto", "Auto-detect") else source_whisper_code(configured)
+    if configured not in ("auto", "Auto-detect"):
+        if configured in BY_NAME:
+            return BY_NAME[configured].nllb
+        if configured in BY_WHISPER:
+            return BY_WHISPER[configured].nllb
+    code = detected
     if not code or code not in BY_WHISPER:
         raise ValueError(f"NLLB cannot route detected language: {code or 'unknown'}")
     return BY_WHISPER[code].nllb

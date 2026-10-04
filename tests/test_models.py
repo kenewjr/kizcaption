@@ -89,7 +89,7 @@ class ModelManagerTest(unittest.TestCase):
 
     def test_model_resource_table_rows(self):
         rows = model_resource_table_rows()
-        self.assertEqual(len(rows), 12)
+        self.assertEqual(len(rows), 13)
         keys = [r["key"] for r in rows]
         self.assertEqual(
             keys,
@@ -103,6 +103,7 @@ class ModelManagerTest(unittest.TestCase):
                 "medium",
                 "whisper-medium-id",
                 "large-v3-turbo",
+                "distil-large-v3",
                 "large-v3",
                 "nllb",
                 "nllb-1.3b",

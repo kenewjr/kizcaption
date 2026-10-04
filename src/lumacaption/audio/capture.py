@@ -363,56 +363,65 @@ class MicrophoneCapture:
     def _callback(self, indata: Any, _frames: int, _time: Any, status: Any) -> None:
         if self._closed.is_set():
             return
-        if status:
-            self.on_warning(f"Microphone status: {status}")
-        samples = np.asarray(indata, dtype=np.float32)
-        if samples.ndim == 0:
-            samples = samples.reshape(1)
-        elif samples.ndim > 1:
-            if self.channel == "left":
-                samples = samples[:, 0]
-            elif self.channel == "right" and samples.shape[1] > 1:
-                samples = samples[:, 1]
+        try:
+            if status:
+                self.on_warning(f"Microphone status: {status}")
+            samples = np.asarray(indata, dtype=np.float32)
+            if samples.ndim == 0:
+                samples = samples.reshape(1)
+            elif samples.ndim > 1:
+                if self.channel == "left":
+                    samples = samples[:, 0]
+                elif self.channel == "right" and samples.shape[1] > 1:
+                    samples = samples[:, 1]
+                else:
+                    samples = np.mean(samples, axis=1, dtype=np.float32)
+            mono = samples.reshape(-1)
+            # Apply user gain first so quiet inputs are boosted before DSP/VAD
+            if self.gain_db != 0.0:
+                mono = mono * (10.0 ** (self.gain_db / 20.0))
+
+            # Auto-normalize signal level so quiet mics (e.g. SteelSeries Sonar)
+            # reach healthy dynamic range (-18 to -9 dBFS) instead of being buried in noise floor
+            if self.normalize_audio and mono.size:
+                raw_peak = float(np.max(np.abs(mono)))
+                if raw_peak > 0.0003:  # Above silence/room hiss
+                    target_peak = 0.35  # ~ -9 dBFS optimal working level
+                    desired_gain = min(target_peak / raw_peak, 20.0)  # up to +26 dB boost
+                    self._auto_gain = 0.85 * self._auto_gain + 0.15 * desired_gain
+                else:
+                    self._auto_gain = 0.98 * self._auto_gain + 0.02 * 1.0
+                mono = mono * self._auto_gain
+
+            # Process denoise and presence filter on properly leveled audio
+            if self._denoiser is not None and self._denoiser.is_ready:
+                try:
+                    mono = self._denoiser.process(mono)
+                except Exception as exc:
+                    self.on_warning(f"Denoiser error: {exc}")
+            if self._dsp is not None:
+                try:
+                    mono = self._dsp.process(mono)
+                except Exception as exc:
+                    self.on_warning(f"Vocal clarity DSP error: {exc}")
+
+            if mono.size:
+                rms = float(np.sqrt(np.mean(mono * mono)))
+                peak = float(np.max(np.abs(mono)))
             else:
-                samples = np.mean(samples, axis=1, dtype=np.float32)
-        mono = samples.reshape(-1)
-        # Apply user gain first so quiet inputs are boosted before DSP/VAD
-        if self.gain_db != 0.0:
-            mono = mono * (10.0 ** (self.gain_db / 20.0))
-
-        # Auto-normalize signal level so quiet mics (e.g. SteelSeries Sonar)
-        # reach healthy dynamic range (-18 to -9 dBFS) instead of being buried in noise floor
-        if self.normalize_audio and mono.size:
-            raw_peak = float(np.max(np.abs(mono)))
-            if raw_peak > 0.0003:  # Above silence/room hiss
-                target_peak = 0.35  # ~ -9 dBFS optimal working level
-                desired_gain = min(target_peak / raw_peak, 20.0)  # up to +26 dB boost
-                self._auto_gain = 0.85 * self._auto_gain + 0.15 * desired_gain
-            else:
-                self._auto_gain = 0.98 * self._auto_gain + 0.02 * 1.0
-            mono = mono * self._auto_gain
-
-        # Process denoise and presence filter on properly leveled audio
-        if self._denoiser is not None and self._denoiser.is_ready:
-            mono = self._denoiser.process(mono)
-        if self._dsp is not None:
-            mono = self._dsp.process(mono)
-
-        if mono.size:
-            rms = float(np.sqrt(np.mean(mono * mono)))
-            peak = float(np.max(np.abs(mono)))
-        else:
-            rms = peak = 0.0
-        limited = soft_limit(mono)
-        pcm_samples = np.rint(limited * 32767.0).astype(np.int16)
-        self._last_frame_at = time.monotonic()
-        now = self._last_frame_at
-        if now - self._last_level_at >= 0.08 and pcm_samples.size:
-            self.on_level(rms, peak)
-            self._last_level_at = now
-        assert self._converter is not None
-        for frame in self._converter.process(pcm_samples):
-            self._enqueue(frame)
+                rms = peak = 0.0
+            limited = soft_limit(mono)
+            pcm_samples = np.rint(limited * 32767.0).astype(np.int16)
+            self._last_frame_at = time.monotonic()
+            now = self._last_frame_at
+            if now - self._last_level_at >= 0.08 and pcm_samples.size:
+                self.on_level(rms, peak)
+                self._last_level_at = now
+            if self._converter is not None:
+                for frame in self._converter.process(pcm_samples):
+                    self._enqueue(frame)
+        except Exception as exc:
+            self.on_warning(f"Audio callback error: {exc}")
 
     def start(self) -> InputDevice:
         import sounddevice as sd

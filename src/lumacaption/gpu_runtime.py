@@ -7,14 +7,16 @@ import threading
 
 _lock = threading.Lock()
 _dll_handles: list = []
+_configured = False
 
 
 def configure_cuda_runtime() -> None:
     """Expose optional NVIDIA wheels to this process, never the system PATH."""
+    global _configured
     if sys.platform != "win32":
         return
     with _lock:
-        if _dll_handles:
+        if _configured:
             return
         candidates: list[Path] = []
         if getattr(sys, "frozen", False):
@@ -47,3 +49,4 @@ def configure_cuda_runtime() -> None:
         # Limit CTranslate2 CUB caching allocator to 200 MiB cache max (prevents GPU memory hoarding)
         if "CT2_CUDA_CACHING_ALLOCATOR_CONFIG" not in os.environ:
             os.environ["CT2_CUDA_CACHING_ALLOCATOR_CONFIG"] = "4,3,12,209715200"
+        _configured = True
