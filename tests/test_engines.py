@@ -262,6 +262,74 @@ class EngineComputeAndCacheTests(unittest.TestCase):
         self.assertEqual(mt_threads, 3)
         self.assertEqual(stt_threads + mt_threads, total_threads)
 
+    def test_whisper_warmup_failure_falls_back_to_cpu(self):
+        from lumacaption.stt.whisper_engine import WhisperEngine
+
+        warnings = []
+        engine = WhisperEngine(
+            model_size="base",
+            device="cuda",
+            model_cache=Path("models/whisper"),
+            on_warning=warnings.append,
+        )
+        engine._candidates = [("base", "cuda"), ("base", "cpu")]
+        engine._candidate_index = 0
+        engine._model_path = "/fake/model/path"
+
+        mock_cuda_model = MagicMock()
+        mock_cuda_model.transcribe.side_effect = RuntimeError("Library cublas64_12.dll is not found or cannot be loaded")
+
+        mock_cpu_model = MagicMock()
+        mock_cpu_model.transcribe.return_value = ([], MagicMock(language="id"))
+
+        models_loaded = []
+        def fake_load_next():
+            model_size, device = engine._candidates[engine._candidate_index]
+            engine._candidate_index += 1
+            engine.active_model = model_size
+            engine.active_device = device
+            if device == "cuda":
+                engine._model = mock_cuda_model
+            else:
+                engine._model = mock_cpu_model
+            models_loaded.append(device)
+
+        with patch.object(engine, "_load_next", side_effect=fake_load_next):
+            engine.prepare("id")
+
+        self.assertEqual(models_loaded, ["cuda", "cpu"])
+        self.assertEqual(engine.active_device, "cpu")
+        self.assertTrue(any("warmup gagal" in w for w in warnings))
+
+    def test_nllb_prepare_exercises_translation_and_falls_back(self):
+        warnings = []
+        engine = NllbEngine(
+            model_id_or_path="mijuanlo/nllb-200-distilled-600M-ct2-int8",
+            device="cuda",
+            cache_dir=Path("models/nllb-cache"),
+            on_warning=warnings.append,
+        )
+        engine.active_device = "cuda"
+        mock_translator = MagicMock()
+        mock_translator.translate_batch.side_effect = RuntimeError("Library cublas64_12.dll is not found")
+        engine._translator = mock_translator
+        mock_sp = MagicMock()
+        mock_sp.encode.return_value = ["tes"]
+        mock_sp.decode.return_value = "test"
+        engine._sentencepiece = mock_sp
+
+        with patch.object(engine, "_load") as mock_load:
+            def fake_load(device):
+                engine.active_device = device
+                engine._translator = MagicMock()
+                engine._sentencepiece = mock_sp
+            mock_load.side_effect = fake_load
+            engine.prepare(["English"])
+
+        self.assertEqual(engine.active_device, "cpu")
+        self.assertTrue(any("warmup" in w.lower() for w in warnings))
+
 
 if __name__ == "__main__":
     unittest.main()
+

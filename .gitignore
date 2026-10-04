@@ -17,6 +17,7 @@ dist/
 config.json
 *.log
 logs/
+loguser/
 
 # Large AI Model checkpoints & caches (downloaded at runtime)
 models/nllb-*/

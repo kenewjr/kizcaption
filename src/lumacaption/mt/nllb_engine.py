@@ -518,9 +518,23 @@ class NllbEngine:
 
     def prepare(self, targets: Sequence[str]) -> None:
         """Exercise translation kernels, but never publish the warm-up text."""
-        if targets:
-            self.on_warning(f"Uji coba translasi NLLB-200 [{targets[0]}]...")
-            self.translate("Hello.", "eng_Latn", targets[:1])
+        if not targets:
+            return
+        first_target = targets[0]
+        try:
+            target_code = target_nllb_code(first_target)
+        except KeyError:
+            target_code = "eng_Latn"
+        source_code = "ind_Latn" if target_code != "ind_Latn" else "eng_Latn"
+        self.on_warning(f"Uji coba translasi NLLB-200 [{first_target}]...")
+        try:
+            self.translate("Tes inferensi.", source_code, [first_target])
+        except Exception as exc:
+            self.on_warning(f"NLLB warmup warning: {exc}")
+            if self.active_device != "cpu":
+                self.on_warning("Beralih model translasi NLLB-200 ke CPU...")
+                self._release()
+                self._load("cpu")
 
     def translate(self, text: str, source_nllb: str, targets: Sequence[str]) -> dict[str, str]:
         clean_original = text.strip()

@@ -230,25 +230,36 @@ class WhisperEngine:
 
     def prepare(self, language: str | None) -> None:
         """Warm the actual encoder/decoder; loading weights alone misses DLL failures."""
-        if self._model is None:
-            self._load_next()
-        self.on_warning(f"Uji coba inferensi Whisper [{self.active_model}]...")
-        try:
-            silence = np.zeros(4000, dtype=np.float32)
-            segments, _ = self._model.transcribe(
-                silence,
-                language=language,
-                beam_size=1,
-                best_of=1,
-                temperature=0.0,
-                condition_on_previous_text=False,
-                without_timestamps=True,
-                vad_filter=False,
-            )
-            for _ in segments:
-                pass
-        except Exception as exc:
-            self.on_warning(f"Whisper warmup note: {exc}")
+        while True:
+            if self._model is None:
+                self._load_next()
+            self.on_warning(f"Uji coba inferensi Whisper [{self.active_model} / {self.active_device}]...")
+            try:
+                silence = np.zeros(4000, dtype=np.float32)
+                segments, _ = self._model.transcribe(
+                    silence,
+                    language=language,
+                    beam_size=1,
+                    best_of=1,
+                    temperature=0.0,
+                    condition_on_previous_text=False,
+                    without_timestamps=True,
+                    vad_filter=False,
+                )
+                for _ in segments:
+                    pass
+                return
+            except Exception as exc:
+                failed_dev = self.active_device
+                failed_model = self.active_model
+                self._release()
+                if self._candidates is not None and self._candidate_index < len(self._candidates):
+                    self.on_warning(
+                        f"Whisper {failed_model}/{failed_dev} warmup gagal ({exc}); beralih ke fallback berikutnya..."
+                    )
+                    continue
+                self.on_warning(f"Whisper warmup error: {exc}")
+                raise
 
     def transcribe(self, pcm: np.ndarray, language: str | None) -> Transcript:
         if pcm.dtype != np.int16 or pcm.ndim != 1 or not pcm.size:

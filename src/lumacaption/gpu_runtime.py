@@ -33,18 +33,40 @@ def configure_cuda_runtime() -> None:
                 Path(sys.prefix) / "lib" / "site-packages" / "nvidia",
             ])
 
+        def _add_dir(d: Path) -> None:
+            if not d.is_dir():
+                return
+            try:
+                _dll_handles.append(os.add_dll_directory(str(d)))
+            except (OSError, ValueError):
+                pass
+            d_str = str(d)
+            cur = os.environ.get("PATH", "")
+            if d_str not in cur.split(os.pathsep):
+                os.environ["PATH"] = d_str + os.pathsep + cur
+
         for root in candidates:
             if not root.is_dir():
                 continue
+            # Add root itself if it contains DLLs directly or is a known bundle dir
+            _add_dir(root)
             for package in ("cublas", "cudnn", "cuda_nvrtc"):
                 for sub in ("bin", "lib", ""):
                     directory = (root / package / sub) if sub else (root / package)
-                    if directory.is_dir():
-                        try:
-                            _dll_handles.append(os.add_dll_directory(str(directory)))
-                        except (OSError, ValueError):
-                            pass
-                        os.environ["PATH"] = str(directory) + os.pathsep + os.environ.get("PATH", "")
+                    _add_dir(directory)
+
+        # Standard CUDA Toolkit paths on Windows if installed
+        cuda_path = os.environ.get("CUDA_PATH")
+        if cuda_path:
+            _add_dir(Path(cuda_path) / "bin")
+        for k, v in os.environ.items():
+            if k.startswith("CUDA_PATH_V") and v:
+                _add_dir(Path(v) / "bin")
+        prog_files = os.environ.get("ProgramFiles", "C:\\Program Files")
+        cuda_base = Path(prog_files) / "NVIDIA GPU Computing Toolkit" / "CUDA"
+        if cuda_base.is_dir():
+            for ver_dir in cuda_base.glob("v*"):
+                _add_dir(ver_dir / "bin")
 
         # Limit CTranslate2 CUB caching allocator to 200 MiB cache max (prevents GPU memory hoarding)
         if "CT2_CUDA_CACHING_ALLOCATOR_CONFIG" not in os.environ:
