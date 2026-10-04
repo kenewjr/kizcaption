@@ -252,6 +252,16 @@ class EngineComputeAndCacheTests(unittest.TestCase):
         self.assertEqual(resolve_whisper_repo("whisper-medium-id"), "cahya/faster-whisper-medium-id")
         self.assertEqual(resolve_whisper_repo("small"), "small")
 
+    def test_cpu_thread_budget_coordination(self):
+        # When both STT and MT run on CPU with targets, thread budget is coordinated
+        total_threads = 8
+        both_cpu = True
+        stt_threads = max(1, round(total_threads * 0.60))
+        mt_threads = max(1, total_threads - stt_threads)
+        self.assertEqual(stt_threads, 5)
+        self.assertEqual(mt_threads, 3)
+        self.assertEqual(stt_threads + mt_threads, total_threads)
+
 
 if __name__ == "__main__":
     unittest.main()

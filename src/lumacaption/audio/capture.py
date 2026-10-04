@@ -73,37 +73,48 @@ class VocalClarityProcessor:
         self.ea1 = (-2.0 * cos_eq) / a0_eq
         self.ea2 = (1.0 - alpha_eq / A) / a0_eq
         self.ex1 = self.ex2 = self.ey1 = self.ey2 = 0.0
+
+        # Vectorized 4th-order combined biquad coefficients (HP 80Hz * Presence 3.2kHz)
+        bh = np.array([self.hb0, self.hb1, self.hb2], dtype=np.float64)
+        ah = np.array([1.0, self.ha1, self.ha2], dtype=np.float64)
+        be = np.array([self.eb0, self.eb1, self.eb2], dtype=np.float64)
+        ae = np.array([1.0, self.ea1, self.ea2], dtype=np.float64)
+        self._B = np.convolve(bh, be)
+        self._A = np.convolve(ah, ae)
+        self._a1 = float(self._A[1])
+        self._a2 = float(self._A[2])
+        self._a3 = float(self._A[3])
+        self._a4 = float(self._A[4])
+        self._prev_x = np.zeros(4, dtype=np.float64)
+        self._prev_y = [0.0, 0.0, 0.0, 0.0]
+
         self.gate_threshold = 0.002  # -54 dBFS quiet floor threshold
         self.expander_gain = 1.0
 
     def reset(self) -> None:
         self.hx1 = self.hx2 = self.hy1 = self.hy2 = 0.0
         self.ex1 = self.ex2 = self.ey1 = self.ey2 = 0.0
+        self._prev_x.fill(0.0)
+        self._prev_y = [0.0, 0.0, 0.0, 0.0]
         self.expander_gain = 1.0
 
     def process(self, x: np.ndarray) -> np.ndarray:
         if not x.size:
             return x
-        y = np.empty_like(x)
-        hx1, hx2, hy1, hy2 = self.hx1, self.hx2, self.hy1, self.hy2
-        hb0, hb1, hb2, ha1, ha2 = self.hb0, self.hb1, self.hb2, self.ha1, self.ha2
-        ex1, ex2, ey1, ey2 = self.ex1, self.ex2, self.ey1, self.ey2
-        eb0, eb1, eb2, ea1, ea2 = self.eb0, self.eb1, self.eb2, self.ea1, self.ea2
+        # Vectorized FIR numerator across entire chunk via compiled NumPy convolution
+        x_pad = np.concatenate((self._prev_x, x.astype(np.float64, copy=False)))
+        self._prev_x = x_pad[-4:]
+        v = np.convolve(x_pad, self._B, mode="valid")
 
-        for i in range(len(x)):
-            xi = float(x[i])
-            # High-pass filter
-            yi = hb0 * xi + hb1 * hx1 + hb2 * hx2 - ha1 * hy1 - ha2 * hy2
-            hx2, hx1 = hx1, xi
-            hy2, hy1 = hy1, yi
-            # Presence clarity filter
-            zi = eb0 * yi + eb1 * ex1 + eb2 * ex2 - ea1 * ey1 - ea2 * ey2
-            ex2, ex1 = ex1, yi
-            ey2, ey1 = ey1, zi
-            y[i] = zi
-
-        self.hx1, self.hx2, self.hy1, self.hy2 = hx1, hx2, hy1, hy2
-        self.ex1, self.ex2, self.ey1, self.ey2 = ex1, ex2, ey1, ey2
+        # Recursive 4th-order IIR denominator
+        y = np.empty_like(v)
+        y0, y1, y2, y3 = self._prev_y[3], self._prev_y[2], self._prev_y[1], self._prev_y[0]
+        a1, a2, a3, a4 = self._a1, self._a2, self._a3, self._a4
+        for i in range(len(v)):
+            yi = v[i] - (a1 * y0 + a2 * y1 + a3 * y2 + a4 * y3)
+            y3, y2, y1, y0 = y2, y1, y0, yi
+            y[i] = yi
+        self._prev_y = [y3, y2, y1, y0]
 
         # Downward expander: smooth soft noise gate during silence
         rms = float(np.sqrt(np.mean(y * y)))
@@ -117,7 +128,7 @@ class VocalClarityProcessor:
         self.expander_gain = alpha * self.expander_gain + (1.0 - alpha) * target
         if self.expander_gain < 0.999:
             y = y * self.expander_gain
-        return y
+        return y.astype(x.dtype, copy=False)
 
 
 def float_audio_to_mono_pcm16(

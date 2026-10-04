@@ -262,6 +262,15 @@ class CaptionPipeline:
                     user_hotwords=self.config.whisper_hotwords or "",
                 )
 
+                total_threads = getattr(self.config, "cpu_threads", 4)
+                both_cpu = (self.config.stt_device == "cpu" and self.config.mt_device == "cpu" and bool(target_names))
+                if both_cpu:
+                    stt_threads = max(1, round(total_threads * 0.60))
+                    mt_threads = max(1, total_threads - stt_threads)
+                else:
+                    stt_threads = total_threads
+                    mt_threads = total_threads
+
                 self._emit("preparing", f"Memuat Whisper [{self.config.whisper_model}]…")
                 stt_kwargs = {
                     "beam_size": self.config.whisper_beam_size,
@@ -270,7 +279,7 @@ class CaptionPipeline:
                 if hasattr(self.config, "stt_compute_type"):
                     stt_kwargs["compute_type"] = self.config.stt_compute_type
                 if hasattr(self.config, "cpu_threads"):
-                    stt_kwargs["cpu_threads"] = self.config.cpu_threads
+                    stt_kwargs["cpu_threads"] = stt_threads
                 try:
                     stt = self.stt_factory(
                         self.config.whisper_model,
@@ -301,7 +310,7 @@ class CaptionPipeline:
                 if hasattr(self.config, "mt_beam_size"):
                     mt_kwargs["beam_size"] = self.config.mt_beam_size
                 if hasattr(self.config, "cpu_threads"):
-                    mt_kwargs["cpu_threads"] = self.config.cpu_threads
+                    mt_kwargs["cpu_threads"] = mt_threads
                 if hasattr(self.config, "slang_normalization"):
                     mt_kwargs["normalize_slang"] = self.config.slang_normalization
                 try:
@@ -332,13 +341,16 @@ class CaptionPipeline:
                 self._loop.call_soon_threadsafe(ready.set)
                 processed_count = 0
                 last_gc_count = 0
+                last_gc_time = time.monotonic()
                 while not self._stop_requested.is_set():
                     try:
                         item = utterances.get(timeout=0.25)
                     except queue.Empty:
-                        if processed_count > last_gc_count and (processed_count - last_gc_count) >= 5:
+                        now = time.monotonic()
+                        if (processed_count - last_gc_count >= 50) and (now - last_gc_time >= 120.0):
                             gc.collect()
                             last_gc_count = processed_count
+                            last_gc_time = now
                         continue
                     try:
                         if item is _INFERENCE_STOP or self._stop_requested.is_set():
@@ -412,9 +424,6 @@ class CaptionPipeline:
                                 "stt_device": stt.active_device, "mt_device": mt.active_device,
                             })
                         processed_count += 1
-                        if processed_count - last_gc_count >= 20:
-                            gc.collect()
-                            last_gc_count = processed_count
                     except ValueError as exc:
                         if self._stop_requested.is_set():
                             return
