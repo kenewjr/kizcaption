@@ -2906,13 +2906,13 @@ class ControlPanel:
     def open_preview(self, language: str) -> None:
         if self._sync_overlay(show_error=True) and self.overlay_service:
             if language in ("all", "static", ""):
-                webbrowser.open(f"{self.static_overlay_url()}?preview=1")
+                webbrowser.open(self.static_overlay_url())
             else:
-                webbrowser.open(self.overlay_service.preview_url(language))
+                webbrowser.open(self.overlay_url(language))
 
     def open_preview_slot(self, slot: int) -> None:
         if self._sync_overlay(show_error=True) and self.overlay_service:
-            webbrowser.open(self.overlay_service.preview_url(profile=slot))
+            webbrowser.open(self.overlay_url(profile=slot))
 
     def test_overlay(self) -> None:
         config = self.save(announce=False)
