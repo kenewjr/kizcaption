@@ -25,8 +25,16 @@ def configure_cuda_runtime() -> None:
                 base / "_internal" / "nvidia",
                 base / "nvidia",
                 base / "_internal",
+                base / "cuda",
                 base,
             ])
+            # Check local app data cache if models/cuda wheels were placed there
+            local_app = os.environ.get("LOCALAPPDATA", "")
+            if local_app:
+                candidates.extend([
+                    Path(local_app) / "KizCaption" / "cuda",
+                    Path(local_app) / "KizCaption" / "nvidia",
+                ])
         else:
             candidates.extend([
                 Path(sys.prefix) / "Lib" / "site-packages" / "nvidia",
