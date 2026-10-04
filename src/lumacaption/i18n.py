@@ -811,6 +811,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "🛡️ Sensor Kata Kasar Otomatis (Aman TOS Streaming)",
         "en": "🛡️ Auto Censor Profanity (Stream TOS Safe)",
     },
+    "editor_line_wrap": {
+        "id": "Arah / Bentuk Tulisan:",
+        "en": "Text Layout Mode:",
+    },
+    "opt_wrap_nowrap": {
+        "id": "Memanjang (1 Baris Lurus)",
+        "en": "Single-Line (Horizontal)",
+    },
+    "opt_wrap_wrap": {
+        "id": "Melipat ke Atas (Multi-Baris)",
+        "en": "Multi-Line (Wrap Upward)",
+    },
     "editor_align": {
         "id": "Perataan Teks:",
         "en": "Text Alignment:",

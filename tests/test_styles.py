@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 import tempfile
@@ -22,13 +22,17 @@ class CaptionStylesAndIoTest(unittest.TestCase):
             2: preset_style("Lavender Glow", "Output 2"),
             3: preset_style("Midnight Card", "Output 3"),
         }
+        profiles[1].line_wrap = "nowrap"
         css = export_css(profiles)
         self.assertIn("#caption-1", css)
         self.assertIn("#caption-2", css)
         self.assertIn("#caption-3", css)
+        self.assertIn("--lc-line-wrap: nowrap;", css)
 
         imported = import_css(css)
         self.assertEqual(set(imported.keys()), {1, 2, 3})
+        self.assertEqual(imported[1].line_wrap, "nowrap")
+        self.assertEqual(imported[2].line_wrap, "wrap")
         for slot in (1, 2, 3):
             self.assertEqual(imported[slot].name, profiles[slot].name)
             self.assertEqual(imported[slot].preset, profiles[slot].preset)

@@ -201,33 +201,45 @@ class CaptionEditor(ttk.Frame):
         platform_combo.grid(row=0, column=1, sticky="w", pady=3)
         platform_combo.bind("<<ComboboxSelected>>", self._on_platform_selected)
 
-        ttk.Label(tab_layout, text=self.t("editor_align")).grid(row=1, column=0, sticky="w", pady=3)
+        ttk.Label(tab_layout, text=self.t("editor_line_wrap")).grid(row=1, column=0, sticky="w", pady=3)
+        self.wrap_var = tk.StringVar()
+        self.wrap_combo = ttk.Combobox(
+            tab_layout,
+            textvariable=self.wrap_var,
+            values=[self.t("opt_wrap_nowrap"), self.t("opt_wrap_wrap")],
+            state="readonly",
+            width=22,
+        )
+        self.wrap_combo.grid(row=1, column=1, sticky="w", pady=3)
+        self.wrap_var.trace_add("write", self._on_field_changed)
+
+        ttk.Label(tab_layout, text=self.t("editor_align")).grid(row=2, column=0, sticky="w", pady=3)
         self.align_var = tk.StringVar()
-        ttk.Combobox(tab_layout, textvariable=self.align_var, values=["center", "left", "right"], state="readonly", width=10).grid(row=1, column=1, sticky="w", pady=3)
+        ttk.Combobox(tab_layout, textvariable=self.align_var, values=["center", "left", "right"], state="readonly", width=10).grid(row=2, column=1, sticky="w", pady=3)
         self.align_var.trace_add("write", self._on_field_changed)
 
-        ttk.Label(tab_layout, text=self.t("editor_max_width")).grid(row=2, column=0, sticky="w", pady=3)
+        ttk.Label(tab_layout, text=self.t("editor_max_width")).grid(row=3, column=0, sticky="w", pady=3)
         self.max_width_var = tk.DoubleVar()
-        ttk.Spinbox(tab_layout, from_=20, to=100, textvariable=self.max_width_var, width=8).grid(row=2, column=1, sticky="w", pady=3)
+        ttk.Spinbox(tab_layout, from_=20, to=100, textvariable=self.max_width_var, width=8).grid(row=3, column=1, sticky="w", pady=3)
         self.max_width_var.trace_add("write", self._on_field_changed)
 
-        ttk.Label(tab_layout, text=self.t("editor_margin_y")).grid(row=3, column=0, sticky="w", pady=3)
+        ttk.Label(tab_layout, text=self.t("editor_margin_y")).grid(row=4, column=0, sticky="w", pady=3)
         self.margin_y_var = tk.DoubleVar()
-        ttk.Spinbox(tab_layout, from_=0, to=360, textvariable=self.margin_y_var, width=8).grid(row=3, column=1, sticky="w", pady=3)
+        ttk.Spinbox(tab_layout, from_=0, to=360, textvariable=self.margin_y_var, width=8).grid(row=4, column=1, sticky="w", pady=3)
         self.margin_y_var.trace_add("write", self._on_field_changed)
 
-        ttk.Label(tab_layout, text=self.t("editor_animation")).grid(row=4, column=0, sticky="w", pady=3)
+        ttk.Label(tab_layout, text=self.t("editor_animation")).grid(row=5, column=0, sticky="w", pady=3)
         self.anim_var = tk.StringVar()
-        ttk.Combobox(tab_layout, textvariable=self.anim_var, values=["fade", "slide", "pop", "none"], state="readonly", width=10).grid(row=4, column=1, sticky="w", pady=3)
+        ttk.Combobox(tab_layout, textvariable=self.anim_var, values=["fade", "slide", "pop", "none"], state="readonly", width=10).grid(row=5, column=1, sticky="w", pady=3)
         self.anim_var.trace_add("write", self._on_field_changed)
 
-        ttk.Label(tab_layout, text=self.t("editor_timeout")).grid(row=5, column=0, sticky="w", pady=3)
+        ttk.Label(tab_layout, text=self.t("editor_timeout")).grid(row=6, column=0, sticky="w", pady=3)
         self.timeout_var = tk.DoubleVar()
-        ttk.Spinbox(tab_layout, from_=0, to=60, textvariable=self.timeout_var, width=8).grid(row=5, column=1, sticky="w", pady=3)
+        ttk.Spinbox(tab_layout, from_=0, to=60, textvariable=self.timeout_var, width=8).grid(row=6, column=1, sticky="w", pady=3)
         self.timeout_var.trace_add("write", self._on_field_changed)
 
         self.label_var = tk.BooleanVar()
-        ttk.Checkbutton(tab_layout, text=self.t("editor_show_label"), variable=self.label_var, command=self._on_field_changed).grid(row=6, column=0, columnspan=2, sticky="w", pady=3)
+        ttk.Checkbutton(tab_layout, text=self.t("editor_show_label"), variable=self.label_var, command=self._on_field_changed).grid(row=7, column=0, columnspan=2, sticky="w", pady=3)
 
         # 3. In-App Live Preview Section
         preview_frame = ttk.LabelFrame(self, text=self.t("editor_preview_title"), padding=8)
@@ -450,6 +462,8 @@ class CaptionEditor(ttk.Frame):
             self.bg_opacity_var.set(s.background_opacity)
             self.radius_var.set(s.radius)
 
+            line_wrap = getattr(s, "line_wrap", "wrap")
+            self.wrap_var.set(self.t("opt_wrap_nowrap") if line_wrap == "nowrap" else self.t("opt_wrap_wrap"))
             self.align_var.set(s.align)
             self.max_width_var.set(s.max_width)
             self.margin_y_var.set(s.margin_y)
@@ -482,6 +496,8 @@ class CaptionEditor(ttk.Frame):
             background_opacity = float(self.bg_opacity_var.get() or 0.85)
             radius = float(self.radius_var.get() or 0)
 
+            wrap_val = self.wrap_var.get()
+            line_wrap = "nowrap" if wrap_val in (self.t("opt_wrap_nowrap"), "nowrap") else "wrap"
             align = self.align_var.get() or "center"
             max_width = float(self.max_width_var.get() or 96)
             margin_y = float(self.margin_y_var.get() or 16)
@@ -527,6 +543,7 @@ class CaptionEditor(ttk.Frame):
                 animation=animation,
                 transition_ms=s.transition_ms,
                 timeout_seconds=timeout_seconds,
+                line_wrap=line_wrap,
             )
             new_style.validate()
             self._current_style = new_style

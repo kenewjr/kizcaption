@@ -17,7 +17,7 @@ NUMBERS = {
     "transition_ms": (0, 1000), "timeout_seconds": (0, 60),
 }
 COLORS = ("text_color", "outline_color", "shadow_color", "background_color", "gradient_color", "border_color", "accent_color")
-CHOICES = {"background": ("transparent", "solid", "gradient"), "align": ("left", "center", "right"), "anchor": ANCHORS, "animation": ("none", "fade", "slide", "pop"), "decoration": ("none", "accent", "bubble", "badge")}
+CHOICES = {"background": ("transparent", "solid", "gradient"), "align": ("left", "center", "right"), "anchor": ANCHORS, "animation": ("none", "fade", "slide", "pop"), "decoration": ("none", "accent", "bubble", "badge"), "line_wrap": ("wrap", "nowrap")}
 BOOLEANS = ("italic", "show_label")
 
 def number(value, low, high, label):
@@ -72,6 +72,7 @@ class CaptionStyle:
     animation: str = "fade"
     transition_ms: float = 180
     timeout_seconds: float = 8
+    line_wrap: str = "wrap"
 
     def validate(self):
         for name in ("name", "preset"):

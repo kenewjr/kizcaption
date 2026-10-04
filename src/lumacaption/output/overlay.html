@@ -84,7 +84,7 @@
       color: var(--lc-color, var(--caption-color, #ffffff));
       text-align: var(--lc-text-align, center);
       overflow-wrap: anywhere;
-      text-wrap: balance;
+      text-wrap: pretty;
       border-radius: var(--lc-rad, 0px);
       padding: var(--lc-pad-y, 0px) var(--lc-pad-x, 0px);
       margin: var(--lc-mar-y, 0px) var(--lc-mar-x, 0px);
@@ -93,6 +93,16 @@
       transform: translateZ(0);
       will-change: transform, opacity;
       transition: opacity 0.16s ease;
+    }
+    .caption-card.mode-nowrap {
+      white-space: nowrap !important;
+      text-wrap: nowrap !important;
+      overflow-wrap: normal !important;
+    }
+    .caption-card.mode-wrap {
+      white-space: normal !important;
+      text-wrap: pretty !important;
+      overflow-wrap: anywhere !important;
     }
     .caption-card.anim-fade {
       animation: lc-fade-in var(--lc-anim-duration, 180ms) cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -226,6 +236,7 @@
     const font = allowedFonts.has(requestedFont) ? requestedFont : "Segoe UI";
     const size = Number.isFinite(requestedSize) ? Math.min(96, Math.max(16, requestedSize)) : 48;
     const theme = requestedTheme === "card" ? "theme-card" : "theme-vtuber";
+    const requestedWrap = (params.get("wrap") || (params.get("nowrap") === "1" ? "nowrap" : "")).toLowerCase();
 
     document.body.className = `${theme} ${isAll ? "multi-line" : ""}`;
     document.documentElement.style.setProperty("--caption-font", `"${font}"`);
@@ -241,6 +252,10 @@
     const subtitles = document.getElementById("subtitles");
     const caption = subtitles;
     const connection = document.getElementById("connection");
+    const initialModeClass = requestedWrap === "nowrap" ? "mode-nowrap" : "mode-wrap";
+    for (const card of document.querySelectorAll(".caption-card")) {
+      card.classList.add(initialModeClass);
+    }
     const slots = {
       1: document.getElementById("caption-1"),
       2: document.getElementById("caption-2"),
@@ -287,6 +302,10 @@
       const transDur = s.transition_ms || 180;
       card.style.setProperty("--lc-anim-duration", `${transDur}ms`);
       card.dataset.animation = animType;
+
+      const lineWrap = s.line_wrap || (requestedWrap === "nowrap" ? "nowrap" : "wrap");
+      card.classList.remove("mode-nowrap", "mode-wrap");
+      card.classList.add(`mode-${lineWrap}`);
 
       const bgAlpha = s.background_opacity ?? 0.85;
       if (s.background === "solid") {
@@ -368,11 +387,25 @@
       caption.style.removeProperty("font-size");
       const bodyStyle = getComputedStyle(document.body);
       const available = Math.max(1, innerHeight - parseFloat(bodyStyle.paddingTop) - parseFloat(bodyStyle.paddingBottom));
+      const hasWidthCheck = typeof innerWidth !== "undefined" && typeof document.querySelectorAll === "function";
+      const availableW = hasWidthCheck
+        ? Math.max(1, innerWidth - (parseFloat(bodyStyle.paddingLeft) || 0) - (parseFloat(bodyStyle.paddingRight) || 0))
+        : Infinity;
       let low = 1, high = Math.max(1, Math.floor(parseFloat(getComputedStyle(caption).fontSize)));
       while (low < high) {
         const middle = Math.ceil((low + high) / 2);
         caption.style.fontSize = `${middle}px`;
-        if (stage.offsetHeight <= available) low = middle;
+        let fits = stage.offsetHeight <= available;
+        if (fits && hasWidthCheck) {
+          const cards = document.querySelectorAll(".caption-slot.visible .caption-card.mode-nowrap");
+          for (let i = 0; i < cards.length; i++) {
+            if (cards[i].scrollWidth > availableW) {
+              fits = false;
+              break;
+            }
+          }
+        }
+        if (fits) low = middle;
         else high = middle - 1;
       }
       caption.style.fontSize = `${low}px`;
