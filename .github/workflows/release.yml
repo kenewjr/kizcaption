@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag version name (e.g. v1.0.0)'
+        description: 'Tag version name (e.g. v1.0.7)'
         required: false
-        default: 'v1.0.0'
+        default: 'v1.0.7'
 
 permissions:
   contents: write
@@ -18,9 +18,21 @@ env:
   ACTIONS_RUNNER_FORCE_NODE24: "true"
 
 jobs:
-  build-and-release:
-    name: Build and Release KizCaption Standalone .EXE
+  build:
+    name: Build ${{ matrix.name }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flavor: "cpu"
+            name: "KizCaption (CPU Edition)"
+            package_name: "KizCaption-windows-x64-cpu"
+            install_gpu: false
+          - flavor: "cuda"
+            name: "KizCaption (NVIDIA CUDA Edition)"
+            package_name: "KizCaption-windows-x64-cuda"
+            install_gpu: true
 
     steps:
       - name: Checkout repository
@@ -33,10 +45,16 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies & PyInstaller
+        shell: powershell
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install -r requirements-gpu.txt
+          if ("${{ matrix.install_gpu }}" -eq "true") {
+              Write-Host "Installing NVIDIA CUDA acceleration packages..."
+              python -m pip install -r requirements-gpu.txt
+          } else {
+              Write-Host "Skipping GPU packages for CPU-only build..."
+          }
           python -m pip install pyinstaller
 
       - name: Run Test Suite before Build
@@ -63,7 +81,6 @@ jobs:
         run: |
           pyinstaller KizCaption.spec --noconfirm
 
-
       - name: Copy user template assets to dist
         shell: powershell
         run: |
@@ -78,43 +95,71 @@ jobs:
               Copy-Item -Force "src/lumacaption/assets/vocabulary.json" "dist/KizCaption/vocabulary.json"
           }
 
-          # Double failsafe: ensure CUDA 12 DLLs are placed directly in dist root for instant out-of-the-box GPU detection
-          $cublas = Get-ChildItem -Path "dist/KizCaption" -Recurse -Filter "cublas64_12.dll" | Select-Object -First 1
-          if ($cublas) {
-              Write-Host "CUDA DLL verified: $($cublas.FullName)"
-              Copy-Item -Force $cublas.FullName "dist/KizCaption/"
-              $cublasLt = Get-ChildItem -Path "dist/KizCaption" -Recurse -Filter "cublasLt64_12.dll" | Select-Object -First 1
-              if ($cublasLt) { Copy-Item -Force $cublasLt.FullName "dist/KizCaption/" }
-          } else {
-              Write-Error "ERROR: cublas64_12.dll was not bundled into dist/KizCaption! Check requirements-gpu.txt installation."
-              exit 1
+          if ("${{ matrix.install_gpu }}" -eq "true") {
+              # Double failsafe: ensure CUDA 12 DLLs are placed directly in dist root for instant out-of-the-box GPU detection
+              $cublas = Get-ChildItem -Path "dist/KizCaption" -Recurse -Filter "cublas64_12.dll" | Select-Object -First 1
+              if ($cublas) {
+                  Write-Host "CUDA DLL verified: $($cublas.FullName)"
+                  Copy-Item -Force $cublas.FullName "dist/KizCaption/"
+                  $cublasLt = Get-ChildItem -Path "dist/KizCaption" -Recurse -Filter "cublasLt64_12.dll" | Select-Object -First 1
+                  if ($cublasLt) { Copy-Item -Force $cublasLt.FullName "dist/KizCaption/" }
+              } else {
+                  Write-Error "ERROR: cublas64_12.dll was not bundled into dist/KizCaption! Check requirements-gpu.txt installation."
+                  exit 1
+              }
           }
 
       - name: Archive Release Package
         shell: powershell
         run: |
-          Compress-Archive -Path dist/KizCaption/* -DestinationPath KizCaption-windows-x64.zip -Force
+          Compress-Archive -Path dist/KizCaption/* -DestinationPath "${{ matrix.package_name }}.zip" -Force
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package_name }}
+          path: ${{ matrix.package_name }}.zip
+          retention-days: 1
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
 
       - name: Determine Release Tag
         id: release_info
-        shell: powershell
         run: |
-          $tag = "${{ inputs.tag_name }}"
-          if (-not $tag -or $tag.Trim() -eq "") {
-              if ("${{ github.ref }}".StartsWith("refs/tags/")) {
-                  $tag = "${{ github.ref_name }}"
-              } else {
-                  $tag = "v1.0.0"
-              }
-          }
-          Write-Output "tag=$tag" >> $env:GITHUB_OUTPUT
+          TAG="${{ inputs.tag_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "" ]; then
+            if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+              TAG="${GITHUB_REF#refs/tags/}"
+            else
+              TAG="v1.0.7"
+            fi
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          files: KizCaption-windows-x64.zip
+          files: release-artifacts/*.zip
           name: "KizCaption ${{ steps.release_info.outputs.tag }}"
+          body: |
+            ### 📦 Pilihan Download / Download Packages:
+            - **`KizCaption-windows-x64-cuda.zip`** (Disarankan untuk GPU NVIDIA):
+              - Akselerasi hardware real-time via NVIDIA CUDA 12 (RTX / GTX).
+              - Sudah termasuk pustaka runtime CUDA (`cublas64_12.dll`, dll) untuk inferensi ultra cepat.
+            - **`KizCaption-windows-x64-cpu.zip`** (Versi Ringan / CPU-Only):
+              - Ukuran file jauh lebih kecil (~100 MB, hemat kuota).
+              - Cocok untuk laptop standar atau PC tanpa GPU NVIDIA (menggunakan Intel Core / AMD Ryzen).
           generate_release_notes: true
           draft: false
+

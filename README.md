@@ -90,9 +90,12 @@ Pre-tuned aesthetic presets across 6 distinct categories:
 ## Installation & Launch
 
 ### Option A: Standalone .EXE (No Python Installation Required)
-1. Download `KizCaption-windows-x64.zip` from the [GitHub Releases](https://github.com/kenewjr/kizcaption/releases) page.
+1. Download the preferred package from [GitHub Releases](https://github.com/kenewjr/kizcaption/releases):
+   - **`KizCaption-windows-x64-cuda.zip`**: Recommended for NVIDIA GeForce GTX / RTX users (includes embedded CUDA 12 runtime DLLs).
+   - **`KizCaption-windows-x64-cpu.zip`**: Lightweight edition (~100 MB) for PCs/laptops without NVIDIA GPU (Intel / AMD).
 2. Extract the archive to any folder on your computer.
-3. Double-click `KizCaption.exe`. All AI runtimes, models, and NVIDIA CUDA DLLs are bundled.
+3. Double-click `KizCaption.exe`.
+
 
 ### Option B: Running from Source
 ```powershell
