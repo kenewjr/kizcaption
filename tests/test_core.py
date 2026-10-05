@@ -392,6 +392,9 @@ class CoreTests(unittest.TestCase):
     def test_known_stock_overlay_hashes_valid_sha256(self):
         from lumacaption.main import KNOWN_STOCK_OVERLAY_HASHES
         self.assertTrue(len(KNOWN_STOCK_OVERLAY_HASHES) >= 2)
+        # Assert exact historical stock hashes (fe4f534 initial and d8c0342 v1.0.0-v1.0.4)
+        self.assertIn("2a73c293bb357f4fbfb6020a52d1bb0f46de27aca8dbdd41f661d5e20548a5f1", KNOWN_STOCK_OVERLAY_HASHES)
+        self.assertIn("e0180e34485ee2093cfc0876c3bd276297929c9d19b6cf3c85502d772b1d1db6", KNOWN_STOCK_OVERLAY_HASHES)
         for h in KNOWN_STOCK_OVERLAY_HASHES:
             self.assertEqual(len(h), 64)
             int(h, 16)  # must be valid hex

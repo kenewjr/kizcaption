@@ -351,7 +351,78 @@ class EngineComputeAndCacheTests(unittest.TestCase):
             device = engine._preferred_device()
         self.assertEqual(device, "cpu")
 
+    def test_nllb_load_failure_non_device_raises_all_fallbacks_failed(self):
+        warnings = []
+        engine = NllbEngine(
+            model_id_or_path="mijuanlo/nllb-200-distilled-600M-ct2-int8",
+            device="cuda",
+            cache_dir=Path("models/nllb-cache"),
+            on_warning=warnings.append,
+        )
+        with patch.object(engine, "_preferred_device", return_value="cuda"), \
+             patch.object(engine, "_load", side_effect=RuntimeError("Corrupt model archive")):
+            with self.assertRaises(RuntimeError) as ctx:
+                engine.translate("Halo", "ind_Latn", ["English"])
+            self.assertIn("All NLLB fallbacks failed", str(ctx.exception))
+            self.assertIn("Corrupt model archive", str(ctx.exception))
+        # Ensure non-device error is not mislabeled as CUDA unavailable
+        self.assertFalse(any("CUDA unavailable" in w for w in warnings))
+
+    def test_nllb_load_failure_cuda_device_falls_back_to_cpu(self):
+        warnings = []
+        engine = NllbEngine(
+            model_id_or_path="mijuanlo/nllb-200-distilled-600M-ct2-int8",
+            device="cuda",
+            cache_dir=Path("models/nllb-cache"),
+            on_warning=warnings.append,
+        )
+        mock_cpu_translator = MagicMock()
+        mock_res = MagicMock()
+        mock_res.hypotheses = [["eng_Latn", "hello", "</s>"]]
+        mock_cpu_translator.translate_batch.return_value = [mock_res]
+        mock_sp = MagicMock()
+        mock_sp.encode.return_value = ["halo"]
+        mock_sp.decode.return_value = "hello"
+
+        def fake_load(device):
+            if device == "cuda":
+                raise RuntimeError("CUDA driver version is insufficient")
+            engine.active_device = device
+            engine._translator = mock_cpu_translator
+            engine._sentencepiece = mock_sp
+
+        with patch.object(engine, "_preferred_device", return_value="cuda"), \
+             patch.object(engine, "_load", side_effect=fake_load):
+            res = engine.translate("Halo", "ind_Latn", ["English"])
+
+        self.assertEqual(res, {"English": "hello"})
+        self.assertEqual(engine.active_device, "cpu")
+        self.assertTrue(any("CUDA unavailable" in w for w in warnings))
+
+    def test_nllb_load_failure_cuda_device_cpu_also_fails(self):
+        warnings = []
+        engine = NllbEngine(
+            model_id_or_path="mijuanlo/nllb-200-distilled-600M-ct2-int8",
+            device="cuda",
+            cache_dir=Path("models/nllb-cache"),
+            on_warning=warnings.append,
+        )
+
+        def fake_load(device):
+            if device == "cuda":
+                raise RuntimeError("CUDA out of memory")
+            raise RuntimeError("CPU out of memory")
+
+        with patch.object(engine, "_preferred_device", return_value="cuda"), \
+             patch.object(engine, "_load", side_effect=fake_load):
+            with self.assertRaises(RuntimeError) as ctx:
+                engine.translate("Halo", "ind_Latn", ["English"])
+            self.assertIn("All NLLB fallbacks failed", str(ctx.exception))
+            self.assertIn("CPU out of memory", str(ctx.exception))
+        self.assertTrue(any("CUDA unavailable" in w for w in warnings))
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

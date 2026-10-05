@@ -60,9 +60,9 @@ def _find_asset_source(bundled: Path, *rel_candidates: str) -> Path | None:
 
 
 KNOWN_STOCK_OVERLAY_HASHES = {
-    # Earlier stock overlay builds (64 hex characters)
-    "2a73c293bb357f4fbfb6020a52d1bb0f46de27aca8dbbdd41f661d5e20548a5f",
-    "b6e45454e698695e9103eace0f2f68e90646259787ecd01e55003504c20a856d",
+    # Earlier stock overlay builds (SHA-256)
+    "2a73c293bb357f4fbfb6020a52d1bb0f46de27aca8dbdd41f661d5e20548a5f1",  # fe4f534 initial release
+    "e0180e34485ee2093cfc0876c3bd276297929c9d19b6cf3c85502d772b1d1db6",  # d8c0342 stock v1.0.0-v1.0.4
 }
 
 

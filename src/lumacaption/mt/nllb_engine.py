@@ -325,6 +325,7 @@ class NllbEngine:
         self._model_path: Path | None = None
         self.active_device = ""
         self.active_compute_type = ""
+        self._consecutive_load_failures = 0
         self._cache: dict[tuple[str, str, tuple[str, ...]], dict[str, str]] = {}
         self._item_cache: dict[tuple[str, str, str], str] = {}
 
@@ -593,13 +594,22 @@ class NllbEngine:
             preferred = self._preferred_device()
             try:
                 self._load(preferred)
+                self._consecutive_load_failures = 0
             except Exception as exc:
-                if preferred == "cpu":
-                    raise
-                self.on_warning(f"NLLB CUDA unavailable: {exc}; using CPU")
+                self._consecutive_load_failures += 1
                 self._release()
-                self._load("cpu")
-                return self.translate(text, source_nllb, targets)
+                err_str = str(exc).lower()
+                is_device_fault = any(kw in err_str for kw in ("cuda", "cudnn", "out of memory", "cublas", "device"))
+                if preferred == "cuda" and is_device_fault and self._consecutive_load_failures <= 3:
+                    self.on_warning(f"NLLB CUDA unavailable: {exc}; using CPU")
+                    try:
+                        self._load("cpu")
+                        self._consecutive_load_failures = 0
+                        return self.translate(text, source_nllb, targets)
+                    except Exception as cpu_exc:
+                        self._release()
+                        raise RuntimeError(f"All NLLB fallbacks failed: {cpu_exc}") from cpu_exc
+                raise RuntimeError(f"All NLLB fallbacks failed: {exc}") from exc
 
         assert self._sentencepiece is not None
         # Normalize casing and closure for optimal NLLB sentence parsing
@@ -636,12 +646,22 @@ class NllbEngine:
                 max_batch_size=1024,
             )
         except Exception as exc:
-            if self.active_device != "cuda":
-                raise
-            self.on_warning(f"NLLB CUDA inference failed: {exc}; retrying on CPU")
+            err_str = str(exc).lower()
+            is_device_fault = any(kw in err_str for kw in ("cuda", "cudnn", "out of memory", "cublas", "device"))
+            if self.active_device == "cuda" and is_device_fault:
+                self.on_warning(f"NLLB CUDA inference failed: {exc}; retrying on CPU")
+                self._release()
+                try:
+                    self._load("cpu")
+                except Exception as cpu_exc:
+                    self._release()
+                    raise RuntimeError(f"All NLLB fallbacks failed: {cpu_exc}") from cpu_exc
+                return self.translate(text, source_nllb, targets)
+            if self.active_device == "cpu" and not is_device_fault:
+                self.on_warning(f"NLLB CPU inference error on utterance: {exc}")
+                return {}
             self._release()
-            self._load("cpu")
-            return self.translate(text, source_nllb, targets)
+            raise RuntimeError(f"All NLLB fallbacks failed: {exc}") from exc
 
         for name, code, result in zip(needed_targets, target_codes, results, strict=True):
             tokens = list(result.hypotheses[0])
