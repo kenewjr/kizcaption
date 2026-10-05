@@ -193,6 +193,22 @@ class AdaptiveLearningAndHallucinationTests(unittest.TestCase):
             # Beta has higher occurrence and must come before Alpha
             self.assertTrue(hw.startswith("Beta, Alpha"))
 
+    def test_vocabulary_manager_learns_non_latin_script(self):
+        with tempfile.TemporaryDirectory() as td:
+            workspace = Path(td)
+            vm = VocabularyManager(workspace)
+            # Observe Russian/Cyrillic word "Тестирование" 2 times (capitalized weight 2 -> total 4 >= 3)
+            vm.observe("Это первое Тестирование системы")
+            learned_ru = vm.observe("Это второе Тестирование системы")
+            self.assertIn("Тестирование", learned_ru)
+
+            # Observe Korean word "테스트단어" 3 times (lowercase weight 1 -> total 3 >= 3)
+            vm.observe("한국어 테스트단어 입니다")
+            vm.observe("한국어 테스트단어 입니다")
+            learned_kr = vm.observe("한국어 테스트단어 입니다")
+            self.assertIn("테스트단어", learned_kr)
+
 
 if __name__ == "__main__":
     unittest.main()
+

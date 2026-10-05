@@ -33,9 +33,14 @@ class ModelManagerTest(unittest.TestCase):
             self.assertEqual(state, "Belum ada")
             self.assertIsNone(path)
 
-            # Silero available when file is present
+            # Silero truncated file (<1MB) is treated as incomplete
             silero_file = cache / "silero_vad.onnx"
             silero_file.write_bytes(b"dummy")
+            state_silero, _ = inspect_model("silero", cache)
+            self.assertEqual(state_silero, "Belum ada")
+
+            # Silero available when file is >= 1MB
+            silero_file.write_bytes(b"x" * 1_200_000)
             state_silero, path_silero = inspect_model("silero", cache)
             self.assertEqual(state_silero, "Tersedia lokal")
             self.assertEqual(path_silero, cache)

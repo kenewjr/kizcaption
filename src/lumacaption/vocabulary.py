@@ -88,7 +88,7 @@ class VocabularyManager:
         if not text:
             return []
 
-        words = re.findall(r"\b[A-Za-z0-9_]{3,25}\b", text)
+        words = re.findall(r"\b\w{3,25}\b", text)
         newly_learned = []
 
         for word in words:

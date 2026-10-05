@@ -4,6 +4,7 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Callable
 import http
+import inspect
 import json
 from pathlib import Path
 import time
@@ -294,7 +295,16 @@ class OverlayServer:
         delivered = 0
         if clients:
             async def _safe_send(ws):
-                await asyncio.wait_for(ws.send(message), timeout=1.5)
+                try:
+                    await asyncio.wait_for(ws.send(message), timeout=1.5)
+                except Exception:
+                    try:
+                        res = ws.close()
+                        if inspect.isawaitable(res):
+                            await res
+                    except Exception:
+                        pass
+                    raise
 
             results = await asyncio.gather(
                 *(_safe_send(client) for client in clients),

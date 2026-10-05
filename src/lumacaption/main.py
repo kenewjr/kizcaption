@@ -83,13 +83,20 @@ def ensure_workspace(directory: Path) -> list[str]:
             if target.is_file():
                 continue
             raise FileNotFoundError(f"Aset bawaan hilang: {target.name}. Instal ulang aplikasi.")
-        if not target.exists():
-            # Exclusive creation protects files another instance just created.
+        if not target.exists() or target.stat().st_size == 0:
+            temp = target.with_suffix(target.suffix + ".tmp")
             try:
-                with target.open("xb") as out, source.open("rb") as data:
+                with temp.open("wb") as out, source.open("rb") as data:
                     shutil.copyfileobj(data, out)
-            except FileExistsError:
-                pass
+                temp.replace(target)
+            except Exception:
+                if temp.exists():
+                    try:
+                        temp.unlink()
+                    except OSError:
+                        pass
+                if not target.exists():
+                    raise
         elif target.name == "overlay.html" and target.read_bytes() != source.read_bytes():
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
             if digest in KNOWN_STOCK_OVERLAY_HASHES:

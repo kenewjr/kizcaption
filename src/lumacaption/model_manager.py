@@ -54,8 +54,22 @@ CATALOG['silero'] = ModelInfo('silero', '', '', ('silero_vad.onnx',), 2.22, 'Rin
 _locks = {key: threading.Lock() for key in CATALOG}
 
 
+MIN_FILE_SIZES = {
+    'silero_vad.onnx': 1_000_000,
+    'model_1.onnx': 500_000,
+    'model_2.onnx': 500_000,
+}
+
+
+def _file_complete(p: Path) -> bool:
+    if not p.is_file():
+        return False
+    min_size = MIN_FILE_SIZES.get(p.name, 1)
+    return p.stat().st_size >= min_size
+
+
 def complete(path: Path, patterns: tuple[str, ...]) -> bool:
-    return path.is_dir() and all(any(p.is_file() and p.stat().st_size > 0 for p in path.glob(pattern)) for pattern in patterns)
+    return path.is_dir() and all(any(_file_complete(p) for p in path.glob(pattern)) for pattern in patterns)
 
 
 def inspect_model(key: str, cache: Path) -> tuple[str, Path | None]:
@@ -393,10 +407,14 @@ def ensure_model(key: str, cache: Path, on_status=None) -> Path:
             from huggingface_hub import hf_hub_download
             emit('Mengunduh', fraction=0.05, speed_str="Menghubungkan…", size_str="0.0 MB / 3.96 MB", detail="Menghubungkan DTLN model 1/2…")
             p1 = Path(hf_hub_download('niobures/DTLN', 'models/DTLN/onnx/model_1.onnx'))
-            shutil.copyfile(p1, cache / 'model_1.onnx')
+            t1 = cache / 'model_1.onnx.tmp'
+            shutil.copyfile(p1, t1)
+            t1.replace(cache / 'model_1.onnx')
             emit('Mengunduh', fraction=0.50, speed_str="Proses", size_str="1.98 MB / 3.96 MB", detail="Mengunduh DTLN model 2/2…")
             p2 = Path(hf_hub_download('niobures/DTLN', 'models/DTLN/onnx/model_2.onnx'))
-            shutil.copyfile(p2, cache / 'model_2.onnx')
+            t2 = cache / 'model_2.onnx.tmp'
+            shutil.copyfile(p2, t2)
+            t2.replace(cache / 'model_2.onnx')
             emit('Memverifikasi', fraction=0.95, size_str="3.96 MB / 3.96 MB", detail="Memverifikasi integritas model DTLN…")
             emit('Tersedia lokal', fraction=1.0)
             try:

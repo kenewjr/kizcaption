@@ -254,8 +254,14 @@ assert.equal(caption.style.fontSize, '11px', 'Fit very short sources without tru
 
     async def test_slow_client_timeout_isolation(self):
         class HangingClient:
+            def __init__(self):
+                self.closed = False
+
             async def send(self, msg):
                 await asyncio.sleep(5.0)
+
+            async def close(self):
+                self.closed = True
 
         hanging = HangingClient()
         self.server.clients["test_group"].add(hanging)
@@ -265,6 +271,7 @@ assert.equal(caption.style.fontSize, '11px', 'Fit very short sources without tru
         elapsed = asyncio.get_event_loop().time() - t0
         self.assertEqual(delivered, 0)
         self.assertNotIn(hanging, self.server.clients["test_group"])
+        self.assertTrue(hanging.closed, "Slow client must be explicitly closed on timeout")
         self.assertLess(elapsed, 2.5)
 
 

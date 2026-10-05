@@ -45,6 +45,19 @@ class FirstLaunchWorkspaceTest(unittest.TestCase):
         bundled = bundled_directory()
         self.assertTrue(bundled.is_dir())
 
+    def test_ensure_workspace_replaces_truncated_zero_byte_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_dir = Path(tmpdir) / "app"
+            test_dir.mkdir()
+            (test_dir / "models").mkdir(parents=True)
+            corrupt_file = test_dir / "models" / "silero_vad.onnx"
+            corrupt_file.write_bytes(b"")
+            self.assertEqual(corrupt_file.stat().st_size, 0)
+
+            ensure_workspace(test_dir)
+            self.assertGreater(corrupt_file.stat().st_size, 0, "Corrupt 0-byte file must be restored")
+
 
 if __name__ == "__main__":
     unittest.main()
+
