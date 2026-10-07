@@ -454,7 +454,7 @@ class ControlPanel:
         elif self._stopping:
             self.start_button["state"] = "disabled"
             self.start_button.configure(text=self.t("btn_stopping_caption_caps"))
-            self._set_status("MENUTUP", AMBER)
+            self._set_status(self.t("status_closing"), AMBER)
 
     def toggle_theme(self) -> None:
         new_mode = "light" if self._theme_name == "dark" else "dark"
@@ -1638,11 +1638,13 @@ class ControlPanel:
         spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         spin_state = {"idx": 0, "active": True}
 
+        is_en = getattr(self.config, "ui_language", "id") == "en"
         self.download_pbar.configure(mode="indeterminate", value=0)
         self.download_pbar.start(12)
-        self.dl_status_var.set(f"Menghubungkan ke server untuk model '{key}'…")
-        self.dl_speed_var.set("Memulai…")
-        self.dl_size_var.set("Menyiapkan alokasi disk…")
+        conn_msg = f"Connecting to server for model '{key}'…" if is_en else f"Menghubungkan ke server untuk model '{key}'…"
+        self.dl_status_var.set(conn_msg)
+        self.dl_speed_var.set("Starting…" if is_en else "Memulai…")
+        self.dl_size_var.set("Preparing disk allocation…" if is_en else "Menyiapkan alokasi disk…")
         self.dl_eta_var.set("")
 
         def spin_ticker():
@@ -1650,7 +1652,7 @@ class ControlPanel:
                 char = spinner[spin_state["idx"] % len(spinner)]
                 spin_state["idx"] += 1
                 cur = self.dl_status_var.get()
-                if "Mengunduh" in cur:
+                if "Mengunduh" in cur or "Downloading" in cur:
                     clean = cur.lstrip("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⬇ ")
                     self.dl_status_var.set(f"⬇ {char} {clean}")
                 self.root.after(120, spin_ticker)
@@ -1674,21 +1676,22 @@ class ControlPanel:
                             self.download_pbar.configure(mode="determinate")
                         self.download_pbar.configure(value=max(1.0, min(100.0, pct)))
                         name_display = filename or detail or key
-                        self.dl_status_var.set(f"Mengunduh {name_display} • {pct:.1f}%")
+                        dl_prefix = "Downloading" if is_en else "Mengunduh"
+                        self.dl_status_var.set(f"{dl_prefix} {name_display} • {pct:.1f}%")
                         self.dl_speed_var.set(f"⚡ {speed_str}")
                         self.dl_size_var.set(f"📦 {size_str}")
                         self.dl_eta_var.set(f"⏳ {eta_str}" if eta_str else "")
                     elif state == "Memverifikasi":
                         self.download_pbar.configure(mode="indeterminate")
                         self.download_pbar.start(15)
-                        self.dl_status_var.set("Memverifikasi integritas file lokal…")
-                        self.dl_speed_var.set("Verifikasi SHA/File")
+                        self.dl_status_var.set("Verifying local file integrity…" if is_en else "Memverifikasi integritas file lokal…")
+                        self.dl_speed_var.set("Verifying SHA/Files" if is_en else "Verifikasi SHA/File")
                     elif state == "Tersedia lokal":
                         self.download_pbar.stop()
                         self.download_pbar.configure(mode="determinate", value=100)
-                        self.dl_status_var.set(f"✔ Model '{key}' selesai diunduh & siap digunakan!")
-                        self.dl_speed_var.set("Selesai (100%)")
-                        self.dl_size_var.set("Penyimpanan lokal diverifikasi")
+                        self.dl_status_var.set(f"✔ Model '{key}' downloaded & ready to use!" if is_en else f"✔ Model '{key}' selesai diunduh & siap digunakan!")
+                        self.dl_speed_var.set("Done (100%)" if is_en else "Selesai (100%)")
+                        self.dl_size_var.set("Local storage verified" if is_en else "Penyimpanan lokal diverifikasi")
                         self.dl_eta_var.set("")
 
                 self.root.after(0, update_ui)
@@ -1696,7 +1699,8 @@ class ControlPanel:
             try:
                 ensure_model(key, cache, cb)
                 spin_state["active"] = False
-                self.root.after(0, lambda: self._set_activity(f"Model {key} siap digunakan", "ok"))
+                ready_msg = f"Model {key} ready to use" if is_en else f"Model {key} siap digunakan"
+                self.root.after(0, lambda: self._set_activity(ready_msg, "ok"))
                 self.root.after(0, self._on_model_card_selected)
                 self.root.after(0, self._update_model_lang_hints)
             except Exception as e:
@@ -1705,8 +1709,9 @@ class ControlPanel:
                 def on_err(msg=err_msg):
                     self.download_pbar.stop()
                     self.download_pbar.configure(mode="determinate", value=0)
-                    self.dl_status_var.set(f"❌ Gagal mengunduh: {msg}")
-                    self.dl_speed_var.set("Terputus")
+                    fail_msg = f"❌ Download failed: {msg}" if is_en else f"❌ Gagal mengunduh: {msg}"
+                    self.dl_status_var.set(fail_msg)
+                    self.dl_speed_var.set("Disconnected" if is_en else "Terputus")
                     self.dl_size_var.set("")
                     self.dl_eta_var.set("")
                 self.root.after(0, on_err)
@@ -1825,40 +1830,46 @@ class ControlPanel:
                 eta_str = (p.get("eta_str") if isinstance(p, dict) else getattr(p, "eta_str", "")) or ""
 
                 def update_ui():
+                    is_en = getattr(self.config, "ui_language", "id") == "en"
                     if state == "Mengunduh":
                         if self.download_pbar["mode"] == "indeterminate":
                             self.download_pbar.stop()
                             self.download_pbar.configure(mode="determinate")
                         self.download_pbar.configure(value=max(1.0, min(100.0, pct)))
-                        self.dl_status_var.set(f"Mengunduh DTLN ONNX • {pct:.1f}%")
+                        dl_prefix = "Downloading DTLN ONNX" if is_en else "Mengunduh DTLN ONNX"
+                        self.dl_status_var.set(f"{dl_prefix} • {pct:.1f}%")
                         self.dl_speed_var.set(f"⚡ {speed_str}")
                         self.dl_size_var.set(f"📦 {size_str}")
                         self.dl_eta_var.set(f"⏳ {eta_str}" if eta_str else "")
                     elif state == "Memverifikasi":
                         self.download_pbar.configure(mode="indeterminate")
                         self.download_pbar.start(15)
-                        self.dl_status_var.set("Memverifikasi file DTLN…")
-                        self.dl_speed_var.set("Verifikasi ONNX")
+                        self.dl_status_var.set("Verifying DTLN file…" if is_en else "Memverifikasi file DTLN…")
+                        self.dl_speed_var.set("Verifying ONNX" if is_en else "Verifikasi ONNX")
                     elif state == "Tersedia lokal":
                         self.download_pbar.stop()
                         self.download_pbar.configure(mode="determinate", value=100)
-                        self.dl_status_var.set("✔ Komponen DTLN selesai diunduh & siap digunakan!")
-                        self.dl_speed_var.set("Selesai (100%)")
-                        self.dl_size_var.set("3.96 MiB siap")
+                        self.dl_status_var.set("✔ DTLN component downloaded & ready to use!" if is_en else "✔ Komponen DTLN selesai diunduh & siap digunakan!")
+                        self.dl_speed_var.set("Done (100%)" if is_en else "Selesai (100%)")
+                        self.dl_size_var.set("3.96 MiB ready" if is_en else "3.96 MiB siap")
                         self.dl_eta_var.set("")
 
                 self.root.after(0, update_ui)
 
             try:
                 ensure_model("dtln", cache, cb)
-                self.root.after(0, lambda: self._set_activity("DTLN Neural Denoiser siap digunakan", "ok"))
+                is_en = getattr(self.config, "ui_language", "id") == "en"
+                ready_msg = "DTLN Neural Denoiser ready to use" if is_en else "DTLN Neural Denoiser siap digunakan"
+                self.root.after(0, lambda: self._set_activity(ready_msg, "ok"))
                 self.root.after(0, self._refresh_dtln_status)
             except Exception as e:
                 err_msg = str(e)
                 def on_err(msg=err_msg):
                     self.download_pbar.stop()
                     self.download_pbar.configure(mode="determinate", value=0)
-                    self.dl_status_var.set(f"❌ Gagal mengunduh DTLN: {msg}")
+                    is_en = getattr(self.config, "ui_language", "id") == "en"
+                    fail_msg = f"❌ Failed to download DTLN: {msg}" if is_en else f"❌ Gagal mengunduh DTLN: {msg}"
+                    self.dl_status_var.set(fail_msg)
                 self.root.after(0, on_err)
             finally:
                 self.root.after(0, lambda: getattr(self, "dtln_download_btn", None) and self.dtln_download_btn.__setitem__("state", "normal"))
@@ -2606,8 +2617,8 @@ class ControlPanel:
                 self.pipeline = None
                 self._stopping = False
                 self._set_live_controls(False)
-                self._set_status("SIAP", GREEN)
-                self._set_activity("Caption dihentikan", "ok")
+                self._set_status(self.t("status_ready"), GREEN)
+                self._set_activity(self.t("activity_stopped"), "ok")
                 return
             else:
                 return
@@ -2615,8 +2626,8 @@ class ControlPanel:
             self.pipeline.request_stop()
             self._stopping = True
             self._closing_since = time.monotonic()
-            self._set_status("MENUTUP", AMBER)
-            self._set_activity("Capture dihentikan; menutup mesin caption…", "warning")
+            self._set_status(self.t("status_closing"), AMBER)
+            self._set_activity(self.t("activity_stopping_engine"), "warning")
             self.start_button["state"] = "disabled"
             self.start_button.configure(text=self.t("btn_stopping_caption_caps"))
             return
@@ -2665,10 +2676,10 @@ class ControlPanel:
         self._pipeline_error = None
         self._processing = False
         self._closing_since = 0.0
-        self.transcript_var.set("Hasil tampil setelah ucapan selesai.")
-        self.runtime_var.set("Menyiapkan model lokal…")
-        self.metrics_var.set("Waktu STT / MT tampil setelah caption pertama")
-        self.audio_hint_var.set("Mikrofon dibuka setelah model siap.")
+        self.transcript_var.set(self.t("transcript_placeholder"))
+        self.runtime_var.set(self.t("runtime_preparing_local"))
+        self.metrics_var.set(self.t("metrics_placeholder"))
+        self.audio_hint_var.set(self.t("audio_hint_mic_opening"))
         self._last_translations.clear()
         self._show_translations({})
         self.pipeline = CaptionPipeline(
@@ -2679,8 +2690,8 @@ class ControlPanel:
         )
         self.pipeline.start()
         self._set_live_controls(True)
-        self._set_status("MENYIAPKAN", CYAN)
-        self._set_activity("Memuat dan menguji model sebelum membuka mikrofon…", "working")
+        self._set_status(self.t("status_preparing"), CYAN)
+        self._set_activity(self.t("activity_testing_models"), "working")
 
     def _poll_events(self) -> None:
         if self._closed:
@@ -2711,12 +2722,12 @@ class ControlPanel:
             if not self._closing_since:
                 self._closing_since = time.monotonic()
             if time.monotonic() - self._closing_since >= 2.0:
-                self.runtime_var.set("Shutdown selesai")
+                self.runtime_var.set(self.t("runtime_shutdown_done"))
                 self.pipeline = None
                 self._stopping = False
                 self._set_live_controls(False)
-                self._set_status("SIAP", GREEN)
-                self._set_activity("Caption dihentikan", "ok")
+                self._set_status(self.t("status_ready"), GREEN)
+                self._set_activity(self.t("activity_stopped"), "ok")
             return
         self.pipeline = None
         self._stopping = False
@@ -2726,8 +2737,8 @@ class ControlPanel:
             self._set_activity(self._pipeline_error, "error")
             self.runtime_var.set(f"❌ Error: {self._pipeline_error}")
         else:
-            self._set_status("SIAP", GREEN)
-            self._set_activity("Caption dihentikan", "ok")
+            self._set_status(self.t("status_ready"), GREEN)
+            self._set_activity(self.t("activity_stopped"), "ok")
 
     def _reset_audio(self) -> None:
         self._level_history.clear()
@@ -2758,17 +2769,17 @@ class ControlPanel:
         levels = [value for _, value in self._level_history]
         spread = max(levels) - min(levels)
         if peak >= 0.98:
-            hint = "Sinyal clipping • turunkan gain mikrofon."
+            hint = self.t("hint_audio_clipping")
         elif self._vad_speaking or now - self._last_speech_at < 1.5:
-            hint = "Ucapan terdeteksi • beri jeda agar caption diproses."
+            hint = self.t("hint_audio_speaking")
         elif db < -65 and peak_db < -55:
-            hint = "Sinyal sangat kecil • periksa mute, gain, atau pilih mic fisik."
+            hint = self.t("hint_audio_too_low")
         elif now - self._level_history[0][0] >= 2 and spread < 4:
-            hint = "Sinyal tetap, belum ada ucapan. Jika sedang bicara: cek routing Sonar atau pilih mic fisik."
+            hint = self.t("hint_audio_constant")
         elif spread >= 6:
-            hint = "Level berubah, belum lolos VAD. Dekatkan mic; periksa ambang VAD bila suara jelas."
+            hint = self.t("hint_audio_not_passing_vad")
         else:
-            hint = "Audio masuk, menunggu ucapan • RMS/peak bukan bukti suara bicara."
+            hint = self.t("hint_audio_waiting")
         self.audio_hint_var.set(hint)
 
     def _handle_event(self, event: PipelineEvent) -> None:
@@ -2783,9 +2794,9 @@ class ControlPanel:
                 self._last_speech_at = time.monotonic()
         elif event.kind == "preparing":
             if not self._stopping:
-                self._set_status("MENYIAPKAN", CYAN)
-                self.activity_var.set("Inisialisasi sistem & model AI…")
-                self.runtime_var.set(event.message)
+                self._set_status(self.t("status_preparing"), CYAN)
+                self.activity_var.set(self.t("activity_initializing"))
+                self.runtime_var.set(self._localize_event_message(event.message))
         elif event.kind == "model_ready":
             self.runtime_var.set(
                 f"Whisper {data.get('model', '')} • STT {data.get('stt_device', '').upper()} • MT {data.get('mt_device', '').upper()}"
@@ -2794,39 +2805,45 @@ class ControlPanel:
             stt_ms = data.get("stt_ms", 0.0)
             mt_ms = data.get("mt_ms", 0.0)
             total_ms = data.get("after_vad_ms", 0.0)
+            is_en = getattr(self.config, "ui_language", "id") == "en"
+            resp_lbl = "Response" if is_en else "Respon"
+            excl_lbl = "(excluding silence)" if is_en else "(di luar jeda hening)"
             self.metrics_var.set(
-                f"⚡ STT {stt_ms:.0f} ms • MT {mt_ms:.0f} ms | Respon: {total_ms:.0f} ms (di luar jeda hening)"
+                f"⚡ STT {stt_ms:.0f} ms • MT {mt_ms:.0f} ms | {resp_lbl}: {total_ms:.0f} ms {excl_lbl}"
             )
         elif event.kind in {"started", "listening"}:
             self._set_status("LIVE", GREEN)
-            self._set_activity(event.message, "ok")
+            self._set_activity(self._localize_event_message(event.message), "ok")
             self._set_live_controls(True)
             if data.get("device"):
+                is_en = getattr(self.config, "ui_language", "id") == "en"
+                dev_prefix = "Active" if is_en else "Aktif"
                 self.audio_device_var.set(
-                    f"Aktif • {data['device']} • {data.get('sample_rate', 16000)} Hz"
+                    f"{dev_prefix} • {data['device']} • {data.get('sample_rate', 16000)} Hz"
                 )
         elif event.kind == "speech":
             self._last_speech_at = time.monotonic()
             if not self._processing:
-                self._set_activity("Suara terdeteksi • hasil setelah jeda bicara", "working")
+                self._set_activity(self.t("activity_voice_detected"), "working")
         elif event.kind in {"queued", "processing"}:
             self._processing = True
-            self.runtime_var.set(event.message)
-            self._set_activity(event.message, "working")
+            loc_msg = self._localize_event_message(event.message)
+            self.runtime_var.set(loc_msg)
+            self._set_activity(loc_msg, "working")
         elif event.kind == "transcript":
             self._processing = False
             text = str(data.get("text", event.message))
             lang = data.get("language", "id")
             self.transcript_var.set(f"[{lang}] {text}" if "language" in data else text)
-            self._set_activity("Ucapan dikenali • menerjemahkan…", "working")
+            self._set_activity(self.t("activity_speech_recognized"), "working")
         elif event.kind == "translations":
             self._processing = False
             self._last_translations = {str(k): str(v) for k, v in data.items()}
             self._show_translations(self._last_translations)
-            self._set_activity("Terjemahan siap • mengirim overlay…", "working")
+            self._set_activity(self.t("activity_translation_ready"), "working")
         elif event.kind == "published":
             self._processing = False
-            self._set_activity("Caption terkirim ke server overlay", "ok")
+            self._set_activity(self.t("activity_caption_sent"), "ok")
             self._update_overlay_diagnostics()
         elif event.kind == "overlay_ready":
             is_en = (getattr(self.config, "ui_language", "id") == "en")
@@ -2844,11 +2861,11 @@ class ControlPanel:
             self._set_activity(event.message, "ok")
         elif event.kind == "stopped":
             self._reset_audio()
-            self.audio_device_var.set("Capture berhenti")
-            self.audio_hint_var.set("Mulai caption untuk memeriksa sinyal lagi.")
+            self.audio_device_var.set(self.t("audio_capture_stopped"))
+            self.audio_hint_var.set(self.t("audio_hint_start_again"))
             self._stopping = True
             if not self._pipeline_error:
-                self._set_status("MENUTUP", AMBER)
+                self._set_status(self.t("status_closing"), AMBER)
             self._finish_stop()
         elif event.kind == "inference_idle":
             if self._stopping:
@@ -2867,9 +2884,44 @@ class ControlPanel:
             )
             self._reset_audio()
         elif event.kind in {"warning", "background"}:
-            self._set_activity(event.message, "warning")
-            if not self._stopping and self.status_var.get() == "MENYIAPKAN":
-                self.runtime_var.set(f"Proses: {event.message}")
+            loc_msg = self._localize_event_message(event.message)
+            self._set_activity(loc_msg, "warning")
+            if not self._stopping and self.status_var.get() in ("MENYIAPKAN", "PREPARING"):
+                is_en = getattr(self.config, "ui_language", "id") == "en"
+                proc_lbl = "Process" if is_en else "Proses"
+                self.runtime_var.set(f"{proc_lbl}: {loc_msg}")
+
+    def _localize_event_message(self, message: str) -> str:
+        if getattr(self.config, "ui_language", "id") != "en":
+            return message
+        msg = str(message)
+        if msg.startswith("Memuat Whisper "):
+            msg = msg.replace("Memuat Whisper ", "Loading Whisper ", 1)
+            msg = msg.replace(" ke ", " on ", 1)
+        elif msg.startswith("Memuat model translasi NLLB-200 ke "):
+            msg = msg.replace("Memuat model translasi NLLB-200 ke ", "Loading NLLB-200 translation model on ", 1)
+        elif msg.startswith("Memeriksa inferensi Whisper "):
+            msg = msg.replace("Memeriksa inferensi Whisper ", "Verifying Whisper inference ", 1)
+        elif msg.startswith("Menyiapkan translasi NLLB-200 "):
+            msg = msg.replace("Menyiapkan translasi NLLB-200 ", "Preparing NLLB-200 translation ", 1)
+            msg = msg.replace("tanpa translasi", "no translation")
+        elif msg.startswith("Uji coba inferensi Whisper "):
+            msg = msg.replace("Uji coba inferensi Whisper ", "Testing Whisper inference ", 1)
+        elif msg.startswith("Uji coba translasi NLLB-200 "):
+            msg = msg.replace("Uji coba translasi NLLB-200 ", "Testing NLLB-200 translation ", 1)
+        elif "hasil tampil setelah jeda bicara" in msg:
+            msg = self.t("activity_live_hint")
+        elif msg == "Inisialisasi sistem & model AI…":
+            msg = self.t("activity_initializing")
+        elif msg == "Ucapan dikenali • menerjemahkan…":
+            msg = self.t("activity_speech_recognized")
+        elif msg == "Terjemahan siap • mengirim overlay…":
+            msg = self.t("activity_translation_ready")
+        elif msg == "Caption terkirim ke server overlay":
+            msg = self.t("activity_caption_sent")
+        elif msg.startswith("Mendengarkan "):
+            msg = msg.replace("Mendengarkan ", "Listening to ", 1)
+        return msg
 
     def _set_status(self, text: str, color: str) -> None:
         self.status_var.set(text)
@@ -2947,14 +2999,19 @@ class ControlPanel:
         url = self.static_overlay_url() if language in ("all", "static", "") else self.overlay_url(language)
         self.root.clipboard_append(url)
         self.root.update_idletasks()
-        label = "Multi-Bahasa (All)" if language in ("all", "static", "") else language
-        self._set_activity(f"URL {label} disalin", "ok")
+        is_en = getattr(self.config, "ui_language", "id") == "en"
+        multi_label = "Multi-Language (All)" if is_en else "Multi-Bahasa (All)"
+        label = multi_label if language in ("all", "static", "") else language
+        copied_msg = f"{label} URL copied" if is_en else f"URL {label} disalin"
+        self._set_activity(copied_msg, "ok")
 
     def copy_url_slot(self, slot: int) -> None:
         self.root.clipboard_clear()
         self.root.clipboard_append(self.overlay_url(profile=slot))
         self.root.update_idletasks()
-        self._set_activity(f"URL Output {slot} disalin", "ok")
+        is_en = getattr(self.config, "ui_language", "id") == "en"
+        copied_msg = f"Output {slot} URL copied" if is_en else f"URL Output {slot} disalin"
+        self._set_activity(copied_msg, "ok")
 
     def open_preview(self, language: str) -> None:
         if self._sync_overlay(show_error=True) and self.overlay_service:
@@ -2982,10 +3039,13 @@ class ControlPanel:
             self._update_overlay_diagnostics()
             diag = self.overlay_service.get_diagnostics()
             connected = diag.get("clients", 0)
+            is_en = getattr(self.config, "ui_language", "id") == "en"
             if connected > 0:
-                self._set_activity(f"Caption tes terkirim ke {connected} browser source aktif", "ok")
+                msg = f"Test caption sent to {connected} active browser sources" if is_en else f"Caption tes terkirim ke {connected} browser source aktif"
+                self._set_activity(msg, "ok")
             else:
-                self._set_activity("Caption tes dikirim (0 browser source terhubung, buka OBS)", "warning")
+                msg = "Test caption sent (0 browser sources connected, open OBS)" if is_en else "Caption tes dikirim (0 browser source terhubung, buka OBS)"
+                self._set_activity(msg, "warning")
         except Exception as exc:
             messagebox.showerror("Tes overlay gagal", str(exc), parent=self.root)
 

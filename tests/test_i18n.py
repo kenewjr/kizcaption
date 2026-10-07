@@ -55,6 +55,19 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
         self.assertEqual(t("btn_light_mode", "en"), "Light Mode")
         self.assertEqual(t("btn_dark_mode", "en"), "Dark Mode")
 
+        self.assertEqual(t("status_ready", "id"), "SIAP")
+        self.assertEqual(t("status_ready", "en"), "READY")
+        self.assertEqual(t("status_preparing", "id"), "MENYIAPKAN")
+        self.assertEqual(t("status_preparing", "en"), "PREPARING")
+        self.assertEqual(t("status_closing", "id"), "MENUTUP")
+        self.assertEqual(t("status_closing", "en"), "CLOSING")
+        self.assertEqual(t("transcript_placeholder", "id"), "Hasil tampil setelah ucapan selesai.")
+        self.assertEqual(t("transcript_placeholder", "en"), "Results appear after speech ends.")
+        self.assertEqual(t("metrics_placeholder", "id"), "Waktu STT / MT tampil setelah caption pertama")
+        self.assertEqual(t("metrics_placeholder", "en"), "STT / MT time appears after first caption")
+        self.assertEqual(t("runtime_preparing_local", "id"), "Menyiapkan model lokal…")
+        self.assertEqual(t("runtime_preparing_local", "en"), "Preparing local models…")
+
         # Fallback for unknown key
         self.assertEqual(t("unknown_key_xyz", "id"), "unknown_key_xyz")
 
@@ -206,6 +219,38 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
             self.assertEqual(st_safe, "safe")
             self.assertIn("VRAM Safe", bdg_safe)
             self.assertIn("Free of OOM risk", dtl_safe)
+
+    def test_control_panel_runtime_messages_localization(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(MicrophoneCapture, "devices", return_value=[self.device]), \
+                patch.object(ControlPanel, "_sync_overlay", return_value=True):
+            store = ConfigStore(Path(directory) / "config.json")
+            cfg = AppConfig(ui_language="en")
+            panel = ControlPanel(self.root, store, cfg, _root)
+            self.root.update()
+
+            # Initial placeholders in English
+            self.assertEqual(panel.status_var.get(), "READY")
+            self.assertEqual(panel.transcript_var.get(), "Results appear after speech ends.")
+            self.assertEqual(panel.metrics_var.get(), "STT / MT time appears after first caption")
+
+            # Localize event message helper
+            self.assertEqual(
+                panel._localize_event_message("Memuat Whisper small ke CUDA (float16)..."),
+                "Loading Whisper small on CUDA (float16)...",
+            )
+            self.assertEqual(
+                panel._localize_event_message("Memuat model translasi NLLB-200 ke CUDA (float16)..."),
+                "Loading NLLB-200 translation model on CUDA (float16)...",
+            )
+            self.assertEqual(
+                panel._localize_event_message("LIVE • hasil tampil setelah jeda bicara"),
+                "LIVE • results appear after speech pause",
+            )
+            self.assertEqual(
+                panel._localize_event_message("Menyiapkan translasi NLLB-200 [tanpa translasi]…"),
+                "Preparing NLLB-200 translation [no translation]…",
+            )
 
 
 if __name__ == "__main__":

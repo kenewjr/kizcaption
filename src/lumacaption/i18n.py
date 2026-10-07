@@ -77,6 +77,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "SIAP",
         "en": "READY",
     },
+    "status_preparing": {
+        "id": "MENYIAPKAN",
+        "en": "PREPARING",
+    },
+    "status_closing": {
+        "id": "MENUTUP",
+        "en": "CLOSING",
+    },
     "status_listening": {
         "id": "MENDENGARKAN",
         "en": "LISTENING",
@@ -606,8 +614,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Original transcript and translated text",
     },
     "transcript_placeholder": {
-        "id": "Ucapan asli tampil di sini.",
-        "en": "Original speech will appear here.",
+        "id": "Hasil tampil setelah ucapan selesai.",
+        "en": "Results appear after speech ends.",
     },
 
     # --- Preset Badges & Descriptions (EZ Mode) ---
@@ -641,6 +649,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "Model belum disiapkan",
         "en": "Model not initialized yet",
     },
+    "runtime_preparing_local": {
+        "id": "Menyiapkan model lokal…",
+        "en": "Preparing local models…",
+    },
+    "runtime_shutdown_done": {
+        "id": "Shutdown selesai",
+        "en": "Shutdown complete",
+    },
     "metrics_placeholder": {
         "id": "Waktu STT / MT tampil setelah caption pertama",
         "en": "STT / MT time appears after first caption",
@@ -649,13 +665,97 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "Capture belum aktif",
         "en": "Capture inactive",
     },
+    "audio_capture_stopped": {
+        "id": "Capture berhenti",
+        "en": "Capture stopped",
+    },
     "audio_hint_select_mic": {
         "id": "Pilih mikrofon, lalu mulai caption untuk melihat sinyal.",
         "en": "Select microphone, then start caption to monitor signal.",
     },
+    "audio_hint_mic_opening": {
+        "id": "Mikrofon dibuka setelah model siap.",
+        "en": "Microphone opens once models are ready.",
+    },
+    "audio_hint_start_again": {
+        "id": "Mulai caption untuk memeriksa sinyal lagi.",
+        "en": "Start caption to monitor signal again.",
+    },
     "activity_ready_session": {
         "id": "Siap untuk sesi baru",
         "en": "Ready for new session",
+    },
+    "activity_testing_models": {
+        "id": "Memuat dan menguji model sebelum membuka mikrofon…",
+        "en": "Loading and verifying models before opening microphone…",
+    },
+    "activity_initializing": {
+        "id": "Inisialisasi sistem & model AI…",
+        "en": "Initializing system & AI models…",
+    },
+    "activity_live_hint": {
+        "id": "LIVE • hasil tampil setelah jeda bicara",
+        "en": "LIVE • results appear after speech pause",
+    },
+    "activity_voice_detected": {
+        "id": "Suara terdeteksi • hasil setelah jeda bicara",
+        "en": "Voice detected • results after speech pause",
+    },
+    "activity_speech_recognized": {
+        "id": "Ucapan dikenali • menerjemahkan…",
+        "en": "Speech recognized • translating…",
+    },
+    "activity_translation_ready": {
+        "id": "Terjemahan siap • mengirim overlay…",
+        "en": "Translation ready • sending to overlay…",
+    },
+    "activity_caption_sent": {
+        "id": "Caption terkirim ke server overlay",
+        "en": "Caption sent to overlay server",
+    },
+    "activity_stopped": {
+        "id": "Caption dihentikan",
+        "en": "Caption stopped",
+    },
+    "activity_stopping_engine": {
+        "id": "Capture dihentikan; menutup mesin caption…",
+        "en": "Capture stopped; closing caption engine…",
+    },
+    "activity_mic_unavailable": {
+        "id": "Mikrofon tidak tersedia",
+        "en": "Microphone unavailable",
+    },
+    "hint_audio_clipping": {
+        "id": "Sinyal clipping • turunkan gain mikrofon.",
+        "en": "Signal clipping • lower microphone gain.",
+    },
+    "hint_audio_speaking": {
+        "id": "Ucapan terdeteksi • beri jeda agar caption diproses.",
+        "en": "Speech detected • pause briefly for caption processing.",
+    },
+    "hint_audio_too_low": {
+        "id": "Sinyal sangat kecil • periksa mute, gain, atau pilih mic fisik.",
+        "en": "Signal very low • check mute, gain, or choose a physical mic.",
+    },
+    "hint_audio_constant": {
+        "id": "Sinyal tetap, belum ada ucapan. Jika sedang bicara: cek routing Sonar atau pilih mic fisik.",
+        "en": "Steady signal, no speech detected. If talking: check routing or pick physical mic.",
+    },
+    "hint_audio_not_passing_vad": {
+        "id": "Level berubah, belum lolos VAD. Dekatkan mic; periksa ambang VAD bila suara jelas.",
+        "en": "Level varying, not passing VAD yet. Move closer to mic or adjust VAD threshold.",
+    },
+    "hint_audio_waiting": {
+        "id": "Audio masuk, menunggu ucapan • RMS/peak bukan bukti suara bicara.",
+        "en": "Audio incoming, awaiting speech • RMS/peak is not proof of vocal speech.",
+    },
+    "hint_audio_mic_not_found": {
+        "id": "Mikrofon tidak ditemukan. Periksa izin Windows.",
+        "en": "Microphone not found. Check Windows permissions.",
+    },
+    "hint_audio_mic_read_failed": {
+        "id": "Gagal membaca mikrofon: {err}",
+        "en": "Failed to read microphone: {err}",
     },
     "vocab_learned_status": {
         "id": "{count} kata dipelajari",
