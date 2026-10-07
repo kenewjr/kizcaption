@@ -111,17 +111,17 @@ class EngineComputeAndCacheTests(unittest.TestCase):
         self.assertIn(("text_134", "ind_Latn", ("English",)), engine._cache)
 
         # Test item-level cache across different target combinations
-        engine._item_cache[("Selamat pagi", "ind_Latn", "English")] = "Good morning"
+        engine._item_cache[("Pergi ke kantor", "ind_Latn", "English")] = "Going to office"
         mock_res = MagicMock()
         mock_res.hypotheses = [["jpn_Jpan", "ohayou", "</s>"]]
         engine._translator.translate_batch.return_value = [mock_res]
         engine._sentencepiece = MagicMock()
-        engine._sentencepiece.encode.return_value = ["selamat", "pagi"]
-        engine._sentencepiece.decode.return_value = "おはよう"
+        engine._sentencepiece.encode.return_value = ["pergi", "ke", "kantor"]
+        engine._sentencepiece.decode.return_value = "オフィスに行く"
 
-        res_multi = engine.translate("Selamat pagi", "ind_Latn", ["English", "Japanese"])
-        self.assertEqual(res_multi["English"], "Good morning")
-        self.assertEqual(res_multi["Japanese"], "おはよう")
+        res_multi = engine.translate("Pergi ke kantor", "ind_Latn", ["English", "Japanese"])
+        self.assertEqual(res_multi["English"], "Going to office")
+        self.assertEqual(res_multi["Japanese"], "オフィスに行く")
         # Translator only translated Japanese (1 sequence instead of 2)
         call_args = engine._translator.translate_batch.call_args
         self.assertEqual(len(call_args[0][0]), 1)

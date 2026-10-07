@@ -9,437 +9,12 @@ from lumacaption.gpu_runtime import configure_cuda_runtime
 from lumacaption.languages import target_nllb_code
 
 
-CONVERSATIONAL_MAP: dict[str, dict[str, str]] = {
-    "sama-sama": {
-        "English": "You're welcome.",
-        "Japanese": "どういたしまして。",
-        "Korean": "천만에요.",
-        "Chinese (Simplified)": "不客气。",
-        "Chinese (Traditional)": "不客氣。",
-        "Spanish": "De nada.",
-        "French": "De rien.",
-        "German": "Gern geschehen.",
-        "Arabic": "عفواً.",
-        "Russian": "Пожалуйста.",
-        "Javanese": "Sami-sami.",
-        "Sundanese": "Sami-sami.",
-        "Italian": "Prego.",
-        "Portuguese": "De nada.",
-        "Dutch": "Graag gedaan.",
-        "Tagalog": "Walang anuman.",
-        "Vietnamese": "Không có chi.",
-        "Thai": "ไม่เป็นไรครับ/ค่ะ",
-        "Malay": "Sama-sama.",
-        "Hindi": "आपका स्वागत है।",
-        "Turkish": "Rica ederim.",
-        "Ukrainian": "Будь ласка.",
-    },
-    "semangat": {
-        "English": "Keep it up!",
-        "Japanese": "がんばって！",
-        "Korean": "화이팅!",
-        "Chinese (Simplified)": "加油！",
-        "Chinese (Traditional)": "加油！",
-        "Spanish": "¡Ánimo!",
-        "French": "Bon courage !",
-        "German": "Viel Erfolg!",
-        "Arabic": "بالتوفيق!",
-        "Russian": "Удачи!",
-        "Javanese": "Semangat!",
-        "Sundanese": "Semangat!",
-        "Italian": "Forza!",
-        "Portuguese": "Força!",
-        "Dutch": "Succes!",
-        "Tagalog": "Laban lang!",
-        "Vietnamese": "Cố lên!",
-        "Thai": "สู้ๆ นะครับ/ค่ะ",
-        "Malay": "Semangat!",
-        "Hindi": "लगे रहो!",
-        "Turkish": "Kolay gelsin!",
-        "Ukrainian": "Тримайся!",
-    },
-    "mantap": {
-        "English": "Awesome!",
-        "Japanese": "素晴らしい！",
-        "Korean": "대박!",
-        "Chinese (Simplified)": "太棒了！",
-        "Chinese (Traditional)": "太棒了！",
-        "Spanish": "¡Genial!",
-        "French": "Génial !",
-        "German": "Großartig!",
-        "Arabic": "رائع!",
-        "Russian": "Отлично!",
-        "Javanese": "Mantep!",
-        "Sundanese": "Mantap!",
-        "Italian": "Fantastico!",
-        "Portuguese": "Demais!",
-        "Dutch": "Geweldig!",
-        "Tagalog": "Ayos!",
-        "Vietnamese": "Tuyệt vời!",
-        "Thai": "สุดยอดเลย",
-        "Malay": "Mantap!",
-        "Hindi": "बहुत बढ़िया!",
-        "Turkish": "Harika!",
-        "Ukrainian": "Чудово!",
-    },
-    "selamat datang": {
-        "English": "Welcome everyone!",
-        "Japanese": "皆さん、ようこそ！",
-        "Korean": "여러분, 환영합니다!",
-        "Chinese (Simplified)": "欢迎大家！",
-        "Chinese (Traditional)": "歡迎大家！",
-        "Spanish": "¡Bienvenidos a todos!",
-        "French": "Bienvenue à tous !",
-        "German": "Willkommen zusammen!",
-        "Arabic": "أهلاً وسهلاً بالجميع!",
-        "Russian": "Добро пожаловать всем!",
-        "Javanese": "Sugeng rawuh sedaya!",
-        "Sundanese": "Wilujeng sumping sadayana!",
-        "Italian": "Benvenuti a tutti!",
-        "Portuguese": "Bem-vindos a todos!",
-        "Dutch": "Welkom allemaal!",
-        "Tagalog": "Maligayang pagdating sa lahat!",
-        "Vietnamese": "Chào mừng mọi người!",
-        "Thai": "ยินดีต้อนรับทุกคนครับ/ค่ะ",
-        "Malay": "Selamat datang semua!",
-        "Hindi": "सभी का स्वागत है!",
-        "Turkish": "Herkese hoş geldiniz!",
-        "Ukrainian": "Ласкаво просимо всіх!",
-    },
-    "sampai jumpa": {
-        "English": "See you later!",
-        "Japanese": "またね！",
-        "Korean": "또 만나요!",
-        "Chinese (Simplified)": "再见！",
-        "Chinese (Traditional)": "再見！",
-        "Spanish": "¡Hasta luego!",
-        "French": "À bientôt !",
-        "German": "Bis bald!",
-        "Arabic": "إلى اللقاء!",
-        "Russian": "До скорой встречи!",
-        "Javanese": "Ngantos kepanggih malih!",
-        "Sundanese": "Dugi ka tepang deui!",
-        "Italian": "A presto!",
-        "Portuguese": "Até logo!",
-        "Dutch": "Tot ziens!",
-        "Tagalog": "Hanggang sa muli!",
-        "Vietnamese": "Hẹn gặp lại!",
-        "Thai": "แล้วเจอกันใหม่ครับ/ค่ะ",
-        "Malay": "Jumpa lagi!",
-        "Hindi": "फिर मिलेंगे!",
-        "Turkish": "Görüşmek üzere!",
-        "Ukrainian": "До зустрічі!",
-    },
-    "tidak apa-apa": {
-        "English": "No problem.",
-        "Japanese": "大丈夫ですよ。",
-        "Korean": "괜찮아요.",
-        "Chinese (Simplified)": "没关系。",
-        "Chinese (Traditional)": "沒關係。",
-        "Spanish": "No pasa nada.",
-        "French": "Ce n'est rien.",
-        "German": "Kein Problem.",
-        "Arabic": "لا مشكلة.",
-        "Russian": "Ничего страшного.",
-        "Javanese": "Mboten napa-napa.",
-        "Sundanese": "Teu sawios-wios.",
-        "Italian": "Nessun problema.",
-        "Portuguese": "Sem problemas.",
-        "Dutch": "Geen probleem.",
-        "Tagalog": "Walang anuman.",
-        "Vietnamese": "Không sao đâu.",
-        "Thai": "ไม่เป็นไรครับ/ค่ะ",
-        "Malay": "Tak apa-apa.",
-        "Hindi": "कोई बात नहीं।",
-        "Turkish": "Sorun değil.",
-        "Ukrainian": "Нічого страшного.",
-    },
-    "tunggu sebentar": {
-        "English": "Just a moment.",
-        "Japanese": "少々お待ちください。",
-        "Korean": "잠시만 기다려주세요.",
-        "Chinese (Simplified)": "请稍等一下。",
-        "Chinese (Traditional)": "請稍等一下。",
-        "Spanish": "Un momento, por favor.",
-        "French": "Un instant s'il vous plaît.",
-        "German": "Einen Moment bitte.",
-        "Arabic": "لحظة من فضلك.",
-        "Russian": "Подождите минутку.",
-        "Javanese": "Sekedhap nggih.",
-        "Sundanese": "Sakedap nya.",
-        "Italian": "Un momento per favore.",
-        "Portuguese": "Um momento, por favor.",
-        "Dutch": "Een momentje alsjeblieft.",
-        "Tagalog": "Sandali lang po.",
-        "Vietnamese": "Xin đợi một chút.",
-        "Thai": "รอสักครู่นะครับ/ค่ะ",
-        "Malay": "Tunggu sekejap.",
-        "Hindi": "एक पल रुकिए।",
-        "Turkish": "Bir dakika lütfen.",
-        "Ukrainian": "Зачекайте хвилинку.",
-    },
-    "hati-hati": {
-        "English": "Take care!",
-        "Japanese": "気をつけてね！",
-        "Korean": "조심하세요!",
-        "Chinese (Simplified)": "小心点！",
-        "Chinese (Traditional)": "小心點！",
-        "Spanish": "¡Cuídate!",
-        "French": "Prenez soin de vous !",
-        "German": "Pass auf dich auf!",
-        "Arabic": "انتبه على نفسك!",
-        "Russian": "Береги себя!",
-        "Javanese": "Ngati-ati ya!",
-        "Sundanese": "Kade nya!",
-        "Italian": "Fai attenzione!",
-        "Portuguese": "Cuidado!",
-        "Dutch": "Pas goed op jezelf!",
-        "Tagalog": "Ingat ka!",
-        "Vietnamese": "Bảo trọng nhé!",
-        "Thai": "ดูแลตัวเองด้วยนะครับ/ค่ะ",
-        "Malay": "Hati-hati ya!",
-        "Hindi": "अपना ध्यान रखना!",
-        "Turkish": "Kendine dikkat et!",
-        "Ukrainian": "Бережи себе!",
-    },
-    "halo": {
-        "English": "Hello!",
-        "Japanese": "こんにちは！",
-        "Korean": "안녕하세요!",
-        "Chinese (Simplified)": "你好！",
-        "Chinese (Traditional)": "你好！",
-        "Spanish": "¡Hola!",
-        "French": "Bonjour !",
-        "German": "Hallo!",
-        "Arabic": "مرحباً!",
-        "Russian": "Привет!",
-        "Javanese": "Sugeng rawuh!",
-        "Sundanese": "Sampurasun!",
-        "Italian": "Ciao!",
-        "Portuguese": "Olá!",
-        "Dutch": "Hallo!",
-        "Tagalog": "Kamusta!",
-        "Vietnamese": "Xin chào!",
-        "Thai": "สวัสดีครับ/ค่ะ",
-        "Malay": "Halo!",
-        "Hindi": "नमस्ते!",
-        "Turkish": "Merhaba!",
-        "Ukrainian": "Привіт!",
-    },
-    "hai": {
-        "English": "Hi!",
-        "Japanese": "こんにちは！",
-        "Korean": "안녕!",
-        "Chinese (Simplified)": "嗨！",
-        "Chinese (Traditional)": "嗨！",
-        "Spanish": "¡Hola!",
-        "French": "Salut !",
-        "German": "Hi!",
-        "Arabic": "مرحباً!",
-        "Russian": "Привет!",
-        "Javanese": "Halo!",
-        "Sundanese": "Halo!",
-        "Italian": "Ciao!",
-        "Portuguese": "Oi!",
-        "Dutch": "Hoi!",
-        "Tagalog": "Hoy!",
-        "Vietnamese": "Chào!",
-        "Thai": "หวัดดีครับ/ค่ะ",
-        "Malay": "Hai!",
-        "Hindi": "नमस्ते!",
-        "Turkish": "Selam!",
-        "Ukrainian": "Привіт!",
-    },
-    "apa kabar": {
-        "English": "How are you?",
-        "Japanese": "お元気ですか？",
-        "Korean": "어떻게 지내세요?",
-        "Chinese (Simplified)": "你好吗？",
-        "Chinese (Traditional)": "你好嗎？",
-        "Spanish": "¿Cómo estás?",
-        "French": "Comment allez-vous ?",
-        "German": "Wie geht es dir?",
-        "Arabic": "كيف حالك؟",
-        "Russian": "Как дела?",
-        "Javanese": "Pripun kabare?",
-        "Sundanese": "Kumaha damang?",
-        "Italian": "Come stai?",
-        "Portuguese": "Como você está?",
-        "Dutch": "Hoe gaat het?",
-        "Tagalog": "Kumusta ka?",
-        "Vietnamese": "Bạn khỏe không?",
-        "Thai": "สบายดีไหมครับ/ค่ะ",
-        "Malay": "Apa khabar?",
-        "Hindi": "आप कैसे हैं?",
-        "Turkish": "Nasılsınız?",
-        "Ukrainian": "Як справи?",
-    },
-    "baik": {
-        "English": "I'm good.",
-        "Japanese": "元気です。",
-        "Korean": "잘 지내요.",
-        "Chinese (Simplified)": "我很好。",
-        "Chinese (Traditional)": "我很好。",
-        "Spanish": "Estoy bien.",
-        "French": "Je vais bien.",
-        "German": "Mir geht's gut.",
-        "Arabic": "أنا بخير.",
-        "Russian": "Все хорошо.",
-        "Javanese": "Sae.",
-        "Sundanese": "Pangestu.",
-        "Italian": "Sto bene.",
-        "Portuguese": "Estou bem.",
-        "Dutch": "Goed hoor.",
-        "Tagalog": "Mabuti naman.",
-        "Vietnamese": "Tôi khỏe.",
-        "Thai": "สบายดีครับ/ค่ะ",
-        "Malay": "Khabar baik.",
-        "Hindi": "मैं ठीक हूँ।",
-        "Turkish": "İyiyim.",
-        "Ukrainian": "Все добре.",
-    },
-    "terima kasih": {
-        "English": "Thank you!",
-        "Japanese": "ありがとうございます！",
-        "Korean": "감사합니다!",
-        "Chinese (Simplified)": "谢谢！",
-        "Chinese (Traditional)": "謝謝！",
-        "Spanish": "¡Gracias!",
-        "French": "Merci !",
-        "German": "Danke!",
-        "Arabic": "شكراً!",
-        "Russian": "Спасибо!",
-        "Javanese": "Matur nuwun!",
-        "Sundanese": "Hatur nuhun!",
-        "Italian": "Grazie!",
-        "Portuguese": "Obrigado!",
-        "Dutch": "Bedankt!",
-        "Tagalog": "Salamat!",
-        "Vietnamese": "Cảm ơn!",
-        "Thai": "ขอบคุณครับ/ค่ะ",
-        "Malay": "Terima kasih!",
-        "Hindi": "धन्यवाद!",
-        "Turkish": "Teşekkürler!",
-        "Ukrainian": "Дякую!",
-    },
-}
-
-CONVERSATIONAL_ALIASES: dict[str, str] = {
-    "helo": "halo",
-    "hello": "halo",
-    "halo halo": "halo",
-    "halo semua": "halo",
-    "halo kawan": "halo",
-    "halo teman teman": "halo",
-    "halo guys": "halo",
-    "hai guys": "hai",
-    "hai semua": "hai",
-    "hi": "hai",
-    "hey": "hai",
-    "gimana kabarnya": "apa kabar",
-    "apa kabar semuanya": "apa kabar",
-    "apa kabar kalian": "apa kabar",
-    "kabar baik": "baik",
-    "baik baik saja": "baik",
-    "aku baik": "baik",
-    "saya baik": "baik",
-    "baik kok": "baik",
-    "makasih": "terima kasih",
-    "makasih ya": "terima kasih",
-    "terima kasih ya": "terima kasih",
-    "terimakasih": "terima kasih",
-    "makasi": "terima kasih",
-    "sama sama": "sama-sama",
-    "sama sama ya": "sama-sama",
-    "sama-sama ya": "sama-sama",
-    "sama2": "sama-sama",
-    "terima kasih kembali": "sama-sama",
-    "makasih kembali": "sama-sama",
-    "semangat ya": "semangat",
-    "semangat yaa": "semangat",
-    "semangat semuanya": "semangat",
-    "ayo semangat": "semangat",
-    "tetap semangat": "semangat",
-    "mantap sekali": "mantap",
-    "mantap banget": "mantap",
-    "mantap jiwa": "mantap",
-    "keren": "mantap",
-    "keren banget": "mantap",
-    "keren sekali": "mantap",
-    "selamat datang semuanya": "selamat datang",
-    "selamat datang kawan-kawan": "selamat datang",
-    "selamat datang kawan": "selamat datang",
-    "selamat datang teman-teman": "selamat datang",
-    "sampai jumpa lagi": "sampai jumpa",
-    "sampai ketemu lagi": "sampai jumpa",
-    "sampai nanti": "sampai jumpa",
-    "dadah": "sampai jumpa",
-    "dadah semuanya": "sampai jumpa",
-    "dah semuanya": "sampai jumpa",
-    "bye bye": "sampai jumpa",
-    "gak apa-apa": "tidak apa-apa",
-    "nggak apa-apa": "tidak apa-apa",
-    "gapapa": "tidak apa-apa",
-    "gak papa": "tidak apa-apa",
-    "sebentar ya": "tunggu sebentar",
-    "sebentar": "tunggu sebentar",
-    "tunggu ya": "tunggu sebentar",
-    "tunggu dulu": "tunggu sebentar",
-    "tunggu sebentar ya": "tunggu sebentar",
-    "hati-hati ya": "hati-hati",
-    "hati-hati di jalan": "hati-hati",
-}
-
-INDONESIAN_SLANG_MAP: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"\b(?:gue|gw|gua|gwa)\b", re.IGNORECASE), "saya"),
-    (re.compile(r"\b(?:lu|lo|elu|loe)\b", re.IGNORECASE), "kamu"),
-    (re.compile(r"\b(?:doi|doy)\b", re.IGNORECASE), "dia"),
-    (re.compile(r"\b(?:gak|ga|gk|nggak|ngga|kagak|ndak)\b", re.IGNORECASE), "tidak"),
-    (re.compile(r"\b(?:udah|uda|udh)\b", re.IGNORECASE), "sudah"),
-    (re.compile(r"\b(?:lagi|lg)\b", re.IGNORECASE), "sedang"),
-    (re.compile(r"\b(?:kalo|kl)\b", re.IGNORECASE), "kalau"),
-    (re.compile(r"\b(?:abis|abs)\b", re.IGNORECASE), "habis"),
-    (re.compile(r"\b(?:terus|trs)\b", re.IGNORECASE), "lalu"),
-    (re.compile(r"\b(?:bgt|buanget)\b", re.IGNORECASE), "sangat"),
-    (re.compile(r"\b(?:emang|emg)\b", re.IGNORECASE), "memang"),
-    (re.compile(r"\b(?:cuman|cm|cma)\b", re.IGNORECASE), "hanya"),
-    (re.compile(r"\b(?:beneran|bener)\b", re.IGNORECASE), "sungguh"),
-    (re.compile(r"\b(?:banget)\b", re.IGNORECASE), "sangat"),
-    (re.compile(r"\b(?:gimana|gmn)\b", re.IGNORECASE), "bagaimana"),
-    (re.compile(r"\b(?:kenape|knp)\b", re.IGNORECASE), "kenapa"),
-    (re.compile(r"\b(?:ngapain|ngapa)\b", re.IGNORECASE), "sedang apa"),
-    (re.compile(r"\b(?:makasih|makasi|trims|tq|thx)\b", re.IGNORECASE), "terima kasih"),
-    (re.compile(r"\b(?:mager)\b", re.IGNORECASE), "malas bergerak"),
-    (re.compile(r"\b(?:baper)\b", re.IGNORECASE), "bawa perasaan"),
-    (re.compile(r"\b(?:kepo)\b", re.IGNORECASE), "penasaran"),
-    (re.compile(r"\b(?:woles|santuy)\b", re.IGNORECASE), "santai"),
-    (re.compile(r"\b(?:gaskeun)\b", re.IGNORECASE), "ayo mulai"),
-    (re.compile(r"\b(?:anjir|anjay)\b", re.IGNORECASE), "wah"),
-    (re.compile(r"\b(?:mantap|mantep)\b", re.IGNORECASE), "bagus sekali"),
-    (re.compile(r"\b(?:cuy|bro|bray)\b", re.IGNORECASE), "kawan"),
-    (re.compile(r"\b(?:gapapa|gpp)\b", re.IGNORECASE), "tidak apa-apa"),
-    (re.compile(r"\b(?:yodah|yaudah)\b", re.IGNORECASE), "baiklah"),
-    (re.compile(r"\b(?:bikin)\b", re.IGNORECASE), "membuat"),
-    (re.compile(r"\b(?:dapet)\b", re.IGNORECASE), "dapat"),
-    (re.compile(r"\b(?:ngomong)\b", re.IGNORECASE), "berbicara"),
-    (re.compile(r"\b(?:liat|ngeliat)\b", re.IGNORECASE), "melihat"),
-    (re.compile(r"\b(?:sampe)\b", re.IGNORECASE), "sampai"),
-    (re.compile(r"\b(?:pake)\b", re.IGNORECASE), "memakai"),
-    (re.compile(r"\b(?:mabar)\b", re.IGNORECASE), "main bersama"),
-    (re.compile(r"\b(?:gabut)\b", re.IGNORECASE), "bosan"),
-    (re.compile(r"\b(?:kocak)\b", re.IGNORECASE), "lucu"),
-    (re.compile(r"\b(?:hoki)\b", re.IGNORECASE), "beruntung"),
-]
-
-
-def normalize_indonesian_slang(text: str) -> str:
-    """Transform Indonesian colloquial & streamer slang to standard Indonesian before MT."""
-    if not text:
-        return ""
-    normalized = text
-    for pattern, replacement in INDONESIAN_SLANG_MAP:
-        normalized = pattern.sub(replacement, normalized)
-    return normalized
+from lumacaption.mt.conversational_data import (
+    CONVERSATIONAL_ALIASES,
+    CONVERSATIONAL_MAP,
+    INDONESIAN_SLANG_MAP,
+    normalize_indonesian_slang,
+)
 
 
 class NllbEngine:
@@ -677,6 +252,7 @@ class NllbEngine:
             target_code = "eng_Latn"
         source_code = "ind_Latn" if target_code != "ind_Latn" else "eng_Latn"
         self.on_warning(f"Uji coba translasi NLLB-200 [{first_target}]...")
+        self._in_prepare = True
         try:
             self.translate("Tes inferensi.", source_code, [first_target])
         except Exception as exc:
@@ -685,6 +261,8 @@ class NllbEngine:
                 self.on_warning("Beralih model translasi NLLB-200 ke CPU...")
                 self._release()
                 self._load("cpu")
+        finally:
+            self._in_prepare = False
 
     def translate(self, text: str, source_nllb: str, targets: Sequence[str]) -> dict[str, str]:
         clean_original = text.strip()
@@ -755,30 +333,46 @@ class NllbEngine:
                 raise RuntimeError(f"All NLLB fallbacks failed: {exc}") from exc
 
         assert self._sentencepiece is not None
-        # Normalize casing and closure for optimal NLLB sentence parsing
+        # Normalize casing and slang before translation
         clean_text = text.strip()
         if source_nllb == "ind_Latn" and getattr(self, "normalize_slang", True):
             clean_text = normalize_indonesian_slang(clean_text)
-        if clean_text and clean_text[0].islower():
-            clean_text = clean_text[0].upper() + clean_text[1:]
-        if clean_text and clean_text[-1] not in ".?!…:;":
-            clean_text += "."
 
-        pieces = self._sentencepiece.encode(clean_text, out_type=str)
-        # NLLB accepts 512 tokens; reserve source language and EOS tokens.
-        if len(pieces) > 510:
-            self.on_warning("Ucapan melebihi batas 510 token NLLB; input dipotong")
-            pieces = pieces[:510]
-        source = [source_nllb, *pieces, "</s>"]
+        # Split compound utterances by sentence boundary to guarantee full clause translation
+        from lumacaption.mt.slang_normalizer import split_into_sentences
+        sentences = split_into_sentences(clean_text)
+        if not sentences:
+            return {}
+
         target_codes = [target_nllb_code(name) for name in needed_targets]
+        batch_sources: list[list[str]] = []
+        batch_prefixes: list[list[str]] = []
+        sentence_data: list[list[str]] = []
 
-        # Dynamic max tokens prevents slow autoregressive overgeneration on short utterances
-        max_tokens = min(256, max(32, int(len(pieces) * 1.8) + 12))
+        max_sentence_tokens = 32
+        for s in sentences:
+            s_clean = s.strip()
+            if s_clean and s_clean[0].islower():
+                s_clean = s_clean[0].upper() + s_clean[1:]
+            if s_clean and s_clean[-1] not in ".?!…:;":
+                s_clean += "."
+            pieces = self._sentencepiece.encode(s_clean, out_type=str)
+            if len(pieces) > 510:
+                self.on_warning("Ucapan melebihi batas 510 token NLLB; input dipotong")
+                pieces = pieces[:510]
+            max_sentence_tokens = max(max_sentence_tokens, int(len(pieces) * 1.8) + 12)
+            src_tokens = [source_nllb, *pieces, "</s>"]
+            sentence_data.append(src_tokens)
+            for code in target_codes:
+                batch_sources.append(src_tokens.copy())
+                batch_prefixes.append([code])
+
+        max_tokens = min(256, max_sentence_tokens)
         effective_beam = max(1, self.beam_size)
         try:
             results = self._translator.translate_batch(
-                [source.copy() for _ in target_codes],
-                target_prefix=[[code] for code in target_codes],
+                batch_sources,
+                target_prefix=batch_prefixes,
                 beam_size=effective_beam,
                 repetition_penalty=1.15,
                 no_repeat_ngram_size=3,
@@ -789,6 +383,8 @@ class NllbEngine:
                 max_batch_size=1024,
             )
         except Exception as exc:
+            if getattr(self, "_in_prepare", False):
+                raise
             err_str = str(exc).lower()
             is_device_fault = any(kw in err_str for kw in ("cuda", "cudnn", "out of memory", "cublas", "device"))
             if self.active_device == "cuda" and is_device_fault:
@@ -806,17 +402,29 @@ class NllbEngine:
             self._release()
             raise RuntimeError(f"All NLLB fallbacks failed: {exc}") from exc
 
-        for name, code, result in zip(needed_targets, target_codes, results, strict=True):
-            tokens = list(result.hypotheses[0])
-            hit_limit = False
-            if not tokens or tokens[-1] != "</s>":
-                hit_limit = True
-                self.on_warning("Terjemahan mencapai batas decoder; teks diakhiri elipsis")
-            else:
-                tokens.pop()
-            if tokens and tokens[0] == code:
-                tokens.pop(0)
-            decoded = self._sentencepiece.decode(tokens).strip()
+        # Collect decoded segments per target
+        target_segments: dict[str, list[str]] = {name: [] for name in needed_targets}
+        res_idx = 0
+        hit_limits: dict[str, bool] = {name: False for name in needed_targets}
+
+        for _s_tokens in sentence_data:
+            for name, code in zip(needed_targets, target_codes, strict=True):
+                result = results[res_idx]
+                res_idx += 1
+                tokens = list(result.hypotheses[0])
+                if not tokens or tokens[-1] != "</s>":
+                    hit_limits[name] = True
+                else:
+                    tokens.pop()
+                if tokens and tokens[0] == code:
+                    tokens.pop(0)
+                decoded_part = self._sentencepiece.decode(tokens).strip()
+                if decoded_part:
+                    target_segments[name].append(decoded_part)
+
+        for name, code in zip(needed_targets, target_codes, strict=True):
+            join_delimiter = "" if code in ("jpn_Jpan", "zho_Hans", "zho_Hant") else " "
+            decoded = join_delimiter.join(target_segments[name]).strip()
 
             # Clean leading dialog turn dashes if original text didn't start with a dash
             if decoded.startswith(("- ", "— ", "– ", "-")) and not text.lstrip().startswith(("-", "—", "–")):
@@ -832,8 +440,10 @@ class NllbEngine:
             elif code == "kor_Hang":
                 decoded = re.sub(r"\s*([.!?])", r"\1", decoded)
 
-            if hit_limit and decoded:
-                decoded += "…"
+            if hit_limits[name]:
+                self.on_warning("Terjemahan mencapai batas decoder; teks diakhiri elipsis")
+                if decoded:
+                    decoded += "…"
             translations[name] = decoded
             self._put_target_cache(clean_original, source_nllb, name, decoded)
 
