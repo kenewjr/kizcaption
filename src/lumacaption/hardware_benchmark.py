@@ -53,8 +53,9 @@ def run_hardware_benchmark(
     sr = 16000
     duration_sec = 5.0
     t_arr = np.linspace(0, duration_sec, int(sr * duration_sec), endpoint=False, dtype=np.float32)
-    # Synthetic speech-like audio with soft harmonic tone and background noise
-    synthetic_audio = (0.05 * np.sin(2 * np.pi * 220 * t_arr) + np.random.normal(0, 0.01, len(t_arr))).astype(np.float32)
+    # Synthetic speech-like audio converted to int16 mono PCM at 16000 Hz
+    float_audio = 0.25 * np.sin(2 * np.pi * 220 * t_arr) + np.random.normal(0, 0.05, len(t_arr))
+    synthetic_audio = np.clip(float_audio * 32767.0, -32768.0, 32767.0).astype(np.int16)
 
     whisper_cache = cache_for(app_dir, "base")
 
@@ -68,11 +69,11 @@ def run_hardware_benchmark(
         beam_size=1,
     )
     try:
-        cpu_engine.transcribe(synthetic_audio[:16000])
+        cpu_engine.transcribe(synthetic_audio[:16000], language="id")
         t0 = time.perf_counter()
         runs = 3
         for _ in range(runs):
-            cpu_engine.transcribe(synthetic_audio)
+            cpu_engine.transcribe(synthetic_audio, language="id")
         elapsed = time.perf_counter() - t0
         avg_sec = elapsed / runs
         rtf_cpu = round(duration_sec / max(0.001, avg_sec), 2)
@@ -91,11 +92,11 @@ def run_hardware_benchmark(
             beam_size=1,
         )
         try:
-            cuda_engine.transcribe(synthetic_audio[:16000])
+            cuda_engine.transcribe(synthetic_audio[:16000], language="id")
             t0 = time.perf_counter()
             runs = 3
             for _ in range(runs):
-                cuda_engine.transcribe(synthetic_audio)
+                cuda_engine.transcribe(synthetic_audio, language="id")
             elapsed = time.perf_counter() - t0
             avg_sec = elapsed / runs
             rtf_cuda = round(duration_sec / max(0.001, avg_sec), 2)

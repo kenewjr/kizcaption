@@ -263,7 +263,7 @@ class WhisperEngine:
                 self.on_warning(f"Whisper warmup error: {exc}")
                 raise
 
-    def transcribe(self, pcm: np.ndarray, language: str | None) -> Transcript:
+    def transcribe(self, pcm: np.ndarray, language: str | None = None) -> Transcript:
         if pcm.dtype != np.int16 or pcm.ndim != 1 or not pcm.size:
             raise ValueError("Whisper expects nonempty mono int16 PCM at 16000 Hz")
         audio = pcm.astype(np.float32, copy=False) / 32768.0
