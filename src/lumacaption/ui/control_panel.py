@@ -457,6 +457,15 @@ class ControlPanel:
                 style="Danger.TButton",
                 state="normal",
             )
+            self._set_activity(self.t("activity_live_hint"), "ok")
+            if hasattr(self, "runtime_var"):
+                self.runtime_var.set(
+                    f"Whisper {self.config.whisper_model} • STT {self.config.stt_device.upper()} • MT {self.config.mt_device.upper()}"
+                )
+            if hasattr(self, "audio_device_var") and getattr(self.config, "microphone_device", None):
+                dev_prefix = "Active" if getattr(self.config, "ui_language", "id") == "en" else "Aktif"
+                dev_name = self.mic_var.get() or self.config.microphone_device
+                self.audio_device_var.set(f"{dev_prefix} • {dev_name} • 16000 Hz")
         elif self._stopping:
             self.start_button["state"] = "disabled"
             self.start_button.configure(text=self.t("btn_stopping_caption_caps"))
@@ -1174,9 +1183,11 @@ class ControlPanel:
                 self._on_model_card_selected()
             elif key == "dtln":
                 self._refresh_dtln_status()
-                self._set_activity("Komponen Audio DTLN dipilih — kelola di kartu Komponen Audio & Neural Denoiser di bawah", "info")
+                is_en = getattr(self.config, "ui_language", "id") == "en"
+                self._set_activity("DTLN audio component selected — manage in Neural Denoiser card below" if is_en else "Komponen Audio DTLN dipilih — kelola di kartu Komponen Audio & Neural Denoiser di bawah", "info")
             elif key == "silero":
-                self._set_activity("Silero VAD v5 adalah detektor jeda suara bawaan kizcaption (models/silero_vad.onnx)", "info")
+                is_en = getattr(self.config, "ui_language", "id") == "en"
+                self._set_activity("Silero VAD v5 is default voice detector (models/silero_vad.onnx)" if is_en else "Silero VAD v5 adalah detektor jeda suara bawaan kizcaption (models/silero_vad.onnx)", "info")
 
         self.res_tree.bind("<<TreeviewSelect>>", _on_table_select)
         self.res_tree.pack(fill="x", expand=True)
@@ -1406,14 +1417,15 @@ class ControlPanel:
             self._open_dir(self.app_dir / "logs")
 
     def check_for_updates_ui(self) -> None:
-        self._set_activity("Memeriksa pembaruan rilis GitHub…", "working")
+        is_en = getattr(self.config, "ui_language", "id") == "en"
+        self._set_activity("Checking for GitHub updates…" if is_en else "Memeriksa pembaruan rilis GitHub…", "working")
 
         def run_check():
             from lumacaption.updater import check_for_updates
             res = check_for_updates(__version__)
 
             def on_done():
-                self._set_activity("Pemeriksaan pembaruan selesai", "idle")
+                self._set_activity("Update check completed" if is_en else "Pemeriksaan pembaruan selesai", "idle")
                 if res["has_update"]:
                     msg = (
                         f"{self.t('update_found_msg', latest=res['latest_version'], current=__version__)}\n\n"
@@ -1592,28 +1604,33 @@ class ControlPanel:
         if key in ("nllb", "nllb-1.3b"):
             nllb_repo = CATALOG[key].repo
             self.config.nllb_model = nllb_repo
+            is_en = getattr(self.config, "ui_language", "id") == "en"
             if hasattr(self, "mt_active_label"):
-                self.mt_active_label.configure(text=f"Model aktif: {nllb_repo}")
-            self._set_activity(f"Model NLLB aktif disetel ke: {nllb_repo}", "ok")
+                self.mt_active_label.configure(text=f"Active model: {nllb_repo}" if is_en else f"Model aktif: {nllb_repo}")
+            self._set_activity(f"Active NLLB model set to: {nllb_repo}" if is_en else f"Model NLLB aktif disetel ke: {nllb_repo}", "ok")
         elif key in MODEL_SIZES:
             self.model_var.set(key)
             self.config.whisper_model = key
-            self._set_activity(f"Model Whisper aktif disetel ke: {key}", "ok")
+            is_en = getattr(self.config, "ui_language", "id") == "en"
+            self._set_activity(f"Active Whisper model set to: {key}" if is_en else f"Model Whisper aktif disetel ke: {key}", "ok")
         else:
-            self._set_activity(f"Model {key} tidak dapat diaktifkan sebagai model utama", "warning")
+            is_en = getattr(self.config, "ui_language", "id") == "en"
+            self._set_activity(f"Model {key} cannot be set as primary model" if is_en else f"Model {key} tidak dapat diaktifkan sebagai model utama", "warning")
             return
 
         try:
             self.config_store.save(self.config)
         except Exception as exc:
-            self._set_activity(f"Gagal menyimpan model: {exc}", "error")
+            is_en = getattr(self.config, "ui_language", "id") == "en"
+            self._set_activity(f"Failed to save model: {exc}" if is_en else f"Gagal menyimpan model: {exc}", "error")
 
     def _scan_and_detect_models(self) -> None:
         from tkinter import filedialog
+        is_en = getattr(self.config, "ui_language", "id") == "en"
         adopted = detect_and_link_models(self.app_dir)
         if adopted:
             msg_items = "\n".join(f"• {m['key']} ({m['name']})" for m in adopted)
-            self._set_activity(f"Ditemukan {len(adopted)} model dan siap digunakan.", "ok")
+            self._set_activity(f"Found {len(adopted)} models ready to use." if is_en else f"Ditemukan {len(adopted)} model dan siap digunakan.", "ok")
             messagebox.showinfo(
                 self.t("scan_models_title"),
                 self.t("scan_models_found", count=len(adopted), models=msg_items),
@@ -1634,7 +1651,7 @@ class ControlPanel:
                 manual_adopted = detect_and_link_models(self.app_dir, custom_source_dir=Path(chosen))
                 if manual_adopted:
                     msg_items = "\n".join(f"• {m['key']} ({m['name']})" for m in manual_adopted)
-                    self._set_activity(f"Berhasil mengimpor {len(manual_adopted)} model dari {chosen}.", "ok")
+                    self._set_activity(f"Successfully imported {len(manual_adopted)} models from {chosen}." if is_en else f"Berhasil mengimpor {len(manual_adopted)} model dari {chosen}.", "ok")
                     messagebox.showinfo(
                         self.t("scan_models_title"),
                         self.t("scan_models_found", count=len(manual_adopted), models=msg_items),
@@ -2504,19 +2521,20 @@ class ControlPanel:
                 self.mic_var.set(entries[0].name)
             else:
                 self.mic_var.set("")
-                self.audio_hint_var.set("Mikrofon tidak ditemukan. Periksa izin Windows.")
+                self.audio_hint_var.set(self.t("hint_audio_mic_not_found"))
         except Exception as exc:
-            self.audio_hint_var.set(f"Gagal membaca mikrofon: {exc}")
-            self._set_activity("Mikrofon tidak tersedia", "error")
+            self.audio_hint_var.set(self.t("hint_audio_mic_read_failed", err=exc))
+            self._set_activity(self.t("hint_audio_mic_unavailable"), "error")
 
     def _collect(self) -> AppConfig:
         targets = selected_targets([variable.get() for variable in self.target_vars])
         source_choice = self.source_var.get().strip()
+        is_en = (getattr(self.config, "ui_language", "id") == "en")
         if source_choice not in SOURCE_CHOICES:
-            raise ValueError("Pilih bahasa ucapan dari daftar")
+            raise ValueError("Select speech language from list" if is_en else "Pilih bahasa ucapan dari daftar")
         selected = self._devices.get(self.mic_var.get())
         if selected is None:
-            raise ValueError("Pilih mikrofon yang tersedia")
+            raise ValueError("Select an available microphone" if is_en else "Pilih mikrofon yang tersedia")
         source = "auto" if source_choice == "Auto-detect" else BY_NAME[source_choice].whisper
         return AppConfig(
             microphone_device=selected.key,
@@ -2562,6 +2580,7 @@ class ControlPanel:
             vocabulary_packages=self.config.vocabulary_packages,
             regional_assistance=self.config.regional_assistance,
             ui_theme=self._theme_name,
+            ui_language=getattr(self.config, "ui_language", "id"),
         )
 
     def save(self, *, announce: bool = True) -> AppConfig | None:
@@ -2583,10 +2602,12 @@ class ControlPanel:
             if not (self.pipeline and self.pipeline.running):
                 self._sync_overlay(show_error=True)
             if announce:
-                self._set_activity("Pengaturan tersimpan", "ok")
+                is_en = (getattr(self.config, "ui_language", "id") == "en")
+                self._set_activity("Settings saved" if is_en else "Pengaturan tersimpan", "ok")
             return config
         except Exception as exc:
-            messagebox.showerror("Pengaturan tidak valid", str(exc), parent=self.root)
+            is_en = (getattr(self.config, "ui_language", "id") == "en")
+            messagebox.showerror("Invalid Settings" if is_en else "Pengaturan tidak valid", str(exc), parent=self.root)
             return None
 
     def _overlay_signature(self, config: AppConfig) -> tuple:
@@ -2976,6 +2997,20 @@ class ControlPanel:
             msg = self.t("activity_translation_ready")
         elif msg == "Caption terkirim ke server overlay":
             msg = self.t("activity_caption_sent")
+        elif msg == "Mentranskripsi ucapan selesai…":
+            msg = "Transcribing completed speech…"
+        elif msg == "Tidak ada ucapan yang dikenali":
+            msg = "No speech recognized"
+        elif msg.startswith("Kosakata baru dipelajari: "):
+            msg = msg.replace("Kosakata baru dipelajari: ", "New vocabulary learned: ", 1)
+        elif msg == "Menerjemahkan caption…":
+            msg = "Translating caption…"
+        elif msg == "Mesin caption berhenti":
+            msg = "Caption engine stopped"
+        elif msg == "Suara terdeteksi":
+            msg = "Voice detected"
+        elif msg == "Antrean penuh: ucapan tertua dilewati untuk menjaga latensi real-time":
+            msg = "Queue full: oldest utterance skipped to maintain real-time latency"
         elif msg.startswith("Mendengarkan "):
             msg = msg.replace("Mendengarkan ", "Listening to ", 1)
         return msg

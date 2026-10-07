@@ -16,6 +16,7 @@ for _p in (str(_root / "src" / "lumacaption"), str(_root / "src"), str(_root)):
 from lumacaption.audio.capture import InputDevice, MicrophoneCapture
 from lumacaption.config import AppConfig, ConfigStore
 from lumacaption.i18n import t, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from lumacaption.pipeline import PipelineEvent
 from lumacaption.ui.control_panel import ControlPanel
 
 
@@ -251,6 +252,20 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
                 panel._localize_event_message("Menyiapkan translasi NLLB-200 [tanpa translasi]…"),
                 "Preparing NLLB-200 translation [no translation]…",
             )
+
+            # Saving settings preserves ui_language="en"
+            saved_config = panel.save(announce=False)
+            self.assertIsNotNone(saved_config)
+            self.assertEqual(saved_config.ui_language, "en")
+            self.assertEqual(panel.config.ui_language, "en")
+
+            # Events trigger English status and device info
+            panel._handle_event(PipelineEvent("started", "LIVE • hasil tampil setelah jeda bicara", {"device": "Fake Mic", "sample_rate": 16000}))
+            self.assertIn("Active • Fake Mic • 16000 Hz", panel.audio_device_var.get())
+            self.assertEqual(panel.activity_var.get(), "LIVE • results appear after speech pause")
+
+            panel._handle_event(PipelineEvent("speech", "Suara terdeteksi"))
+            self.assertEqual(panel.activity_var.get(), "Voice detected • results after speech pause")
 
 
 if __name__ == "__main__":

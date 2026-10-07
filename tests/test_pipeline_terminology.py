@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 import sys
+import tempfile
 import time
 import unittest
 
@@ -108,25 +109,26 @@ class PipelineDirectTranslationTests(unittest.TestCase):
         )
 
         fake_vad = DirectFakeVad()
-        pipeline = CaptionPipeline(
-            cfg,
-            Path("."),
-            events.append,
-            capture_factory=DirectFakeCapture,
-            vad_factory=lambda **_kwargs: fake_vad,
-            stt_factory=DirectFakeStt,
-            mt_factory=DirectFakeMt,
-            output_factory=DirectFakeOutput,
-        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pipeline = CaptionPipeline(
+                cfg,
+                Path(tmp_dir),
+                events.append,
+                capture_factory=DirectFakeCapture,
+                vad_factory=lambda **_kwargs: fake_vad,
+                stt_factory=DirectFakeStt,
+                mt_factory=DirectFakeMt,
+                output_factory=DirectFakeOutput,
+            )
 
-        pipeline.start()
-        # Wait for translation event
-        for _ in range(30):
-            time.sleep(0.05)
-            if any(e.kind == "translations" for e in events):
-                break
-        pipeline.request_stop()
-        time.sleep(0.1)
+            pipeline.start()
+            # Wait for translation event
+            for _ in range(30):
+                time.sleep(0.05)
+                if any(e.kind == "translations" for e in events):
+                    break
+            pipeline.request_stop()
+            time.sleep(0.1)
 
         # 1. STT hotwords receives user hotwords directly without artificial dictionary pollution
         self.assertEqual(DirectFakeStt.received_hotwords, "custom_word")
