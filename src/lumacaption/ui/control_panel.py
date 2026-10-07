@@ -367,7 +367,7 @@ class ControlPanel:
         style.map("ModeActive.TButton", background=[("active", c["violet_hover"])])
 
         if hasattr(self, "theme_btn") and self.theme_btn:
-            self.theme_btn.configure(text="Mode Terang" if mode == "dark" else "Mode Gelap")
+            self.theme_btn.configure(text=self.t("btn_light_mode") if mode == "dark" else self.t("btn_dark_mode"))
 
         if hasattr(self, "models_canvas") and self.models_canvas:
             self.models_canvas.configure(bg=c["bg"])
@@ -671,6 +671,13 @@ class ControlPanel:
             command=lambda: self.apply_resource_preset("high"),
         )
         self.btn_preset_high.grid(row=0, column=2, sticky="ew", padx=(3, 0))
+
+        self.btn_benchmark_hw = ttk.Button(
+            preset_btn_grid,
+            text=self.t("btn_benchmark_hw"),
+            command=self._start_hardware_benchmark,
+        )
+        self.btn_benchmark_hw.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6, 0))
 
         # Status badge frame
         badge_frame = ttk.Frame(self.ez_template_card, style="Soft.TFrame", padding=(10, 8))
@@ -2022,15 +2029,15 @@ class ControlPanel:
                 self.beam_var.set("1")
                 self.stt_compute_type_var.set("int8")
                 self.stt_device_var.set("auto")
-                self.denoise_engine_var.set("clarity")
+                self.denoise_engine_var.set("dtln")
                 self.slang_normalization_var.set(True)
                 self.audio_clarity_var.set(True)
                 if is_en:
                     self.preset_badge_var.set("🟢 LOW SPEC (SAVER)")
-                    self.preset_desc_var.set("⚡ Ultra Light • Base Model • Int8 • 1 Beam • Low CPU & RAM")
+                    self.preset_desc_var.set("⚡ Ultra Light • Base Model • Int8 • 1 Beam • DTLN Neural Denoise")
                 else:
                     self.preset_badge_var.set("🟢 HEMAT (LOW SPEC)")
-                    self.preset_desc_var.set("⚡ Sangat Ringan • Model Base • Int8 • 1 Beam • Hemat CPU & RAM")
+                    self.preset_desc_var.set("⚡ Sangat Ringan • Model Base • Int8 • 1 Beam • DTLN Neural Denoise")
 
             elif key in ("medium", "balanced", "seimbang"):
                 self.resource_preset_var.set("Seimbang")
@@ -2099,6 +2106,52 @@ class ControlPanel:
             self.btn_preset_med.configure(style="TButton", text=med_title)
             self.btn_preset_high.configure(style="TButton", text=high_title)
 
+    def _start_hardware_benchmark(self) -> None:
+        if self.pipeline and (self.pipeline.running or getattr(self.pipeline, "inference_busy", False)):
+            messagebox.showwarning(self.t("benchmark_result_title"), self.t("benchmark_pipeline_active"))
+            return
+
+        from lumacaption.model_manager import inspect_model, cache_for
+        whisper_cache = cache_for(self.app_dir, "base")
+        stt_status, _ = inspect_model("base", whisper_cache)
+        nllb_cache = cache_for(self.app_dir, "nllb")
+        mt_status, _ = inspect_model("nllb", nllb_cache)
+
+        if stt_status != "Tersedia lokal" or mt_status != "Tersedia lokal":
+            messagebox.showinfo(self.t("benchmark_result_title"), self.t("benchmark_missing_models"))
+            return
+
+        if hasattr(self, "btn_benchmark_hw"):
+            self.btn_benchmark_hw.configure(state="disabled", text=self.t("benchmark_running"))
+
+        def _worker() -> None:
+            try:
+                from lumacaption.hardware_benchmark import run_hardware_benchmark
+                res = run_hardware_benchmark(self.app_dir)
+                self.root.after(0, self._on_benchmark_complete, res, None)
+            except Exception as exc:
+                self.root.after(0, self._on_benchmark_complete, None, exc)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_benchmark_complete(self, result, error: Exception | None) -> None:
+        if hasattr(self, "btn_benchmark_hw"):
+            self.btn_benchmark_hw.configure(state="normal", text=self.t("btn_benchmark_hw"))
+
+        if error is not None:
+            messagebox.showerror(self.t("benchmark_result_title"), f"Gagal menjalankan tes: {error}")
+            return
+
+        preset_names = {
+            "low": self.t("preset_low"),
+            "medium": self.t("preset_med"),
+            "high": self.t("preset_high"),
+        }
+        name = preset_names.get(result.recommended_preset, result.recommended_preset.title())
+        msg = self.t("benchmark_apply_prompt", preset=name, details=result.details)
+        if messagebox.askyesno(self.t("benchmark_result_title"), msg):
+            self.apply_resource_preset(result.recommended_preset)
+
     def _sync_preset_badge(self, preset: str) -> None:
         source_lang = self.source_var.get().strip().casefold()
         is_indo = ("indonesia" in source_lang)
@@ -2106,7 +2159,7 @@ class ControlPanel:
         is_en = getattr(self.config, "ui_language", "id") == "en"
         if key in ("low", "hemat"):
             self.preset_badge_var.set("🟢 LOW SPEC (SAVER)" if is_en else "🟢 HEMAT (LOW SPEC)")
-            self.preset_desc_var.set("⚡ Ultra Light • Base Model • Int8 • 1 Beam • Low CPU & RAM" if is_en else "⚡ Sangat Ringan • Model Base • Int8 • 1 Beam • Hemat CPU & RAM")
+            self.preset_desc_var.set("⚡ Ultra Light • Base Model • Int8 • 1 Beam • DTLN Neural Denoise" if is_en else "⚡ Sangat Ringan • Model Base • Int8 • 1 Beam • DTLN Neural Denoise")
         elif key in ("medium", "balanced", "seimbang"):
             self.preset_badge_var.set("🔵 BALANCED (RECOMMENDED) ⭐" if is_en else "🔵 SEIMBANG (BALANCED) ⭐")
             if is_indo:
@@ -2152,7 +2205,7 @@ class ControlPanel:
         ttk.Label(head, text=title, style="CardTitle.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(head, text=subtitle, style="Muted.TLabel").grid(row=1, column=0, sticky="w")
         if collapsible:
-            self.advanced_button = ttk.Button(head, text="Buka", style="Link.TButton")
+            self.advanced_button = ttk.Button(head, text=self.t("btn_advanced_open"), style="Link.TButton")
             self.advanced_button.grid(row=0, column=1, rowspan=2, sticky="e")
         return card
 
@@ -2186,11 +2239,11 @@ class ControlPanel:
         if self._advanced_visible:
             self._advanced_body.pack(fill="x", pady=(8, 0))
             if hasattr(self, "advanced_button"):
-                self.advanced_button.configure(text="Tutup")
+                self.advanced_button.configure(text=self.t("btn_advanced_close"))
         else:
             self._advanced_body.pack_forget()
             if hasattr(self, "advanced_button"):
-                self.advanced_button.configure(text="Buka")
+                self.advanced_button.configure(text=self.t("btn_advanced_open"))
         self.body.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 

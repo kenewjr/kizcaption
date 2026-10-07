@@ -107,6 +107,15 @@ jobs:
                   Write-Error "ERROR: cublas64_12.dll was not bundled into dist/KizCaption! Check requirements-gpu.txt installation."
                   exit 1
               }
+          } else {
+              # Negative assertion: verify that CPU-only build is completely clean from CUDA DLLs
+              $leaked = Get-ChildItem -Path "dist/KizCaption" -Recurse -Filter "cublas*.dll" -ErrorAction SilentlyContinue
+              if ($leaked) {
+                  Write-Error "ERROR: File CUDA ($($leaked.Name -join ', ')) ketahuan ikut ter-bundle di build CPU-only! Cek requirements-gpu.txt / KizCaption.spec."
+                  exit 1
+              } else {
+                  Write-Host "Terverifikasi: build CPU-only bersih dari file CUDA."
+              }
           }
 
       - name: Archive Release Package

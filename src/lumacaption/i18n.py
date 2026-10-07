@@ -29,9 +29,41 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "Mode Gelap",
         "en": "Dark Mode",
     },
+    "btn_advanced_open": {
+        "id": "Buka",
+        "en": "Open",
+    },
+    "btn_advanced_close": {
+        "id": "Tutup",
+        "en": "Close",
+    },
     "btn_lang_toggle": {
         "id": "Bahasa: ID",
         "en": "Language: EN",
+    },
+    "btn_benchmark_hw": {
+        "id": "🔬 Tes Hardware Saya",
+        "en": "🔬 Benchmark Hardware",
+    },
+    "benchmark_running": {
+        "id": "🔬 Mengukur performa hardware... Harap tunggu",
+        "en": "🔬 Benchmarking hardware... Please wait",
+    },
+    "benchmark_missing_models": {
+        "id": "Tes hardware memerlukan model dasar (Whisper base & NLLB-200). Silakan unduh kedua model tersebut melalui Tab Model terlebih dahulu.",
+        "en": "Hardware benchmark requires base models (Whisper base & NLLB-200). Please download both models from the Models Tab first.",
+    },
+    "benchmark_pipeline_active": {
+        "id": "Hentikan sesi live caption sebelum menjalankan tes hardware.",
+        "en": "Please stop live caption session before running hardware benchmark.",
+    },
+    "benchmark_result_title": {
+        "id": "Hasil Pengukuran Hardware",
+        "en": "Hardware Benchmark Result",
+    },
+    "benchmark_apply_prompt": {
+        "id": "Rekomendasi konfigurasi: {preset}\n\nPengukuran:\n{details}\n\nTerapkan rekomendasi preset ini sekarang?",
+        "en": "Recommended configuration: {preset}\n\nMeasurements:\n{details}\n\nApply this recommended preset now?",
     },
     "mode_ez": {
         "id": "Mode Santai (EZ)",

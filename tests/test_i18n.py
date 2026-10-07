@@ -39,6 +39,10 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
         self.assertIn("Santai", t("mode_ez", "id"))
         self.assertEqual(t("btn_start_caption", "id"), "Mulai Caption")
         self.assertEqual(t("btn_stop_caption", "id"), "Hentikan")
+        self.assertEqual(t("btn_advanced_open", "id"), "Buka")
+        self.assertEqual(t("btn_advanced_close", "id"), "Tutup")
+        self.assertEqual(t("btn_light_mode", "id"), "Mode Terang")
+        self.assertEqual(t("btn_dark_mode", "id"), "Mode Gelap")
 
         # English: clean standard desktop terminology
         en_title = t("card_template_title", "en")
@@ -46,6 +50,10 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
         self.assertIn("EZ Mode", t("mode_ez", "en"))
         self.assertEqual(t("btn_start_caption", "en"), "Start Caption")
         self.assertEqual(t("btn_stop_caption", "en"), "Stop Caption")
+        self.assertEqual(t("btn_advanced_open", "en"), "Open")
+        self.assertEqual(t("btn_advanced_close", "en"), "Close")
+        self.assertEqual(t("btn_light_mode", "en"), "Light Mode")
+        self.assertEqual(t("btn_dark_mode", "en"), "Dark Mode")
 
         # Fallback for unknown key
         self.assertEqual(t("unknown_key_xyz", "id"), "unknown_key_xyz")

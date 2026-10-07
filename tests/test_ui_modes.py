@@ -59,7 +59,7 @@ class UiModesAndPresetsTest(unittest.TestCase):
             self.assertEqual(panel.model_var.get(), "base")
             self.assertEqual(panel.beam_var.get(), "1")
             self.assertEqual(panel.stt_compute_type_var.get(), "int8")
-            self.assertEqual(panel.denoise_engine_var.get(), "clarity")
+            self.assertEqual(panel.denoise_engine_var.get(), "dtln")
             self.assertIn("HEMAT", panel.preset_badge_var.get())
 
             # 3. Apply Medium Template (Seimbang) with Indonesian Language
