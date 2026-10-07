@@ -133,7 +133,7 @@ class AppConfig:
     whisper_hotwords: str = ""
     vad_threshold: float = 0.5
     min_silence_ms: int = 650
-    min_speech_ms: int = 250
+    min_speech_ms: int = 150
     max_utterance_seconds: int = 20
     caption_timeout_seconds: int = 8
     schema_version: int = SCHEMA_VERSION

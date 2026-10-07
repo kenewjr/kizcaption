@@ -58,7 +58,7 @@ class VadSegmenter:
         model: ProbabilityModel,
         threshold: float = 0.5,
         min_silence_ms: int = 650,
-        min_speech_ms: int = 250,
+        min_speech_ms: int = 150,
         max_utterance_seconds: int = 20,
         speech_pad_ms: int = 320,
     ) -> None:

@@ -54,6 +54,13 @@ def trim_dangling_conjunctions(text: str) -> str:
     return " ".join(words).strip()
 
 
+VALID_SHORT_WORDS: set[str] = {
+    "baik", "ya", "iya", "oke", "siap", "hai", "halo", "tes", "yuk", "gas",
+    "bro", "pak", "bu", "mas", "mbak", "rek", "om", "tante", "sip", "jos",
+    "yes", "no", "hi", "hey",
+}
+
+
 def sanitize_transcript(text: str) -> str:
     cleaned = text
     for pat in _HALLUCINATION_PATTERNS:
@@ -277,14 +284,14 @@ class WhisperEngine:
         prompt = None
         if language in ("id", None):
             if self.hotwords:
-                prompt = f"Halo, siaran langsung berbahasa Indonesia santai. Kosakata: {self.hotwords}."
+                prompt = f"Halo, siaran langsung berbahasa Indonesia: baik, ya, oke, halo, apa kabar. Kosakata: {self.hotwords}."
             else:
-                prompt = "Halo, selamat datang di siaran langsung. Pembicara berbicara dalam bahasa Indonesia dengan jelas dan artikulasi setiap kata yang runtut."
+                prompt = "Halo, selamat datang di siaran langsung berbahasa Indonesia santai: baik, ya, oke, halo, apa kabar."
         elif language == "jw":
             if self.hotwords:
                 prompt = f"Sugeng rawuh ing siaran langsung iki. Tembung: {self.hotwords}."
             else:
-                prompt = "Sugeng rawuh ing siaran langsung iki."
+                prompt = "Sugeng rawuh ing siaran langsung iki: sae, nggih, monggo, halo."
         elif self.hotwords:
             prompt = self.hotwords
 
@@ -316,7 +323,16 @@ class WhisperEngine:
                     if getattr(segment, "no_speech_prob", 0.0) > 0.65:
                         continue
                     raw_text = getattr(segment, "text", "") or ""
-                    if getattr(segment, "avg_logprob", 0.0) < -1.2 and len(raw_text.strip()) < 8:
+                    # Filter pure punctuation or empty noise
+                    if not re.search(r"\w", raw_text):
+                        continue
+                    clean_norm = re.sub(r"[^\w\s]", "", raw_text).strip().lower()
+                    # Filter out short low-confidence filler noise (e.g. "ah", "uh") while preserving legitimate words
+                    if (
+                        getattr(segment, "avg_logprob", 0.0) < -1.2
+                        and len(clean_norm) < 4
+                        and clean_norm not in VALID_SHORT_WORDS
+                    ):
                         continue
                     cleaned = sanitize_transcript(raw_text)
                     if cleaned:
