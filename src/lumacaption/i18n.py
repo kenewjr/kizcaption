@@ -149,6 +149,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "Kualitas & Beban PC:",
         "en": "Quality & PC Load:",
     },
+    "preset_ultra_low": {
+        "id": "Potato PC (Ultra Hemat)",
+        "en": "Potato PC (Ultra Saver)",
+    },
     "preset_low": {
         "id": "Hemat (PC Ringan)",
         "en": "Low (Lightweight PC)",
@@ -160,6 +164,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "preset_high": {
         "id": "Akurasi Tinggi (PC Kuat)",
         "en": "High (Powerful PC)",
+    },
+    "preset_ultra": {
+        "id": "Ultra Studio (Extreme)",
+        "en": "Ultra Studio (Extreme)",
     },
     "card_runtime_title": {
         "id": "STATUS RUNTIME & LOG",
@@ -619,13 +627,13 @@ STRINGS: dict[str, dict[str, str]] = {
     },
 
     # --- Preset Badges & Descriptions (EZ Mode) ---
-    "preset_badge_med": {
-        "id": "🔵 SEIMBANG (BALANCED) ⭐",
-        "en": "🔵 BALANCED (RECOMMENDED) ⭐",
+    "preset_badge_ultra_low": {
+        "id": "🌱 ULTRA HEMAT (POTATO PC)",
+        "en": "🌱 ULTRA SAVER (POTATO PC)",
     },
-    "preset_desc_med": {
-        "id": "⭐ Rekomendasi Utama • Akurasi tinggi & latency rendah",
-        "en": "⭐ Top Recommendation • High accuracy & low latency",
+    "preset_desc_ultra_low": {
+        "id": "⚡ Super Ringan • Model Tiny • Int8 • 1 Beam • RAM <400MB",
+        "en": "⚡ Super Light • Tiny Model • Int8 • 1 Beam • RAM <400MB",
     },
     "preset_badge_low": {
         "id": "🟢 RINGAN & HEMAT (LOW RESOURCE)",
@@ -635,6 +643,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "⚡ Cepat & hemat daya untuk PC kantor/laptop tanpa GPU",
         "en": "⚡ Fast & energy-efficient for office PCs/laptops without GPU",
     },
+    "preset_badge_med": {
+        "id": "🔵 SEIMBANG (BALANCED) ⭐",
+        "en": "🔵 BALANCED (RECOMMENDED) ⭐",
+    },
+    "preset_desc_med": {
+        "id": "⭐ Rekomendasi Utama • Akurasi tinggi & latency rendah",
+        "en": "⭐ Top Recommendation • High accuracy & low latency",
+    },
     "preset_badge_high": {
         "id": "🟣 AKURASI TINGGI (HIGH PRECISION)",
         "en": "🟣 HIGH ACCURACY (STUDIO)",
@@ -642,6 +658,14 @@ STRINGS: dict[str, dict[str, str]] = {
     "preset_desc_high": {
         "id": "🎯 Model besar & beam luas untuk rekaman studio/podcast",
         "en": "🎯 Large model & wide beam for studio/podcast recordings",
+    },
+    "preset_badge_ultra": {
+        "id": "👑 ULTRA STUDIO (EXTREME)",
+        "en": "👑 ULTRA STUDIO (EXTREME)",
+    },
+    "preset_desc_ultra": {
+        "id": "🚀 Akurasi Tertinggi • large-v3-turbo • 5 Beams • Studio Grade",
+        "en": "🚀 Maximum Precision • large-v3-turbo • 5 Beams • Studio Grade",
     },
 
     # --- Placeholders & Activity ---

@@ -354,6 +354,9 @@ class ControlPanel:
         )
 
         # Template preset buttons & Mode switcher button styles
+        style.configure("PresetActiveUltraLow.TButton", background="#059669", foreground="#FFFFFF", font=("Segoe UI Semibold", 9))
+        style.map("PresetActiveUltraLow.TButton", background=[("active", "#10B981")])
+
         style.configure("PresetActiveLow.TButton", background=c["green"], foreground="#FFFFFF", font=("Segoe UI Semibold", 9))
         style.map("PresetActiveLow.TButton", background=[("active", c["green"])])
 
@@ -362,6 +365,9 @@ class ControlPanel:
 
         style.configure("PresetActiveHigh.TButton", background="#9333EA", foreground="#FFFFFF", font=("Segoe UI Semibold", 9))
         style.map("PresetActiveHigh.TButton", background=[("active", "#A855F7")])
+
+        style.configure("PresetActiveUltra.TButton", background="#E11D48", foreground="#FFFFFF", font=("Segoe UI Semibold", 9))
+        style.map("PresetActiveUltra.TButton", background=[("active", "#F43F5E")])
 
         style.configure("ModeActive.TButton", background=c["violet"], foreground="#FFFFFF", font=("Segoe UI Semibold", 9))
         style.map("ModeActive.TButton", background=[("active", c["violet_hover"])])
@@ -647,37 +653,50 @@ class ControlPanel:
 
         preset_btn_grid = ttk.Frame(self.ez_template_card, style="Inner.TFrame")
         preset_btn_grid.pack(fill="x", pady=(0, 6))
-        preset_btn_grid.columnconfigure(0, weight=1)
-        preset_btn_grid.columnconfigure(1, weight=1)
-        preset_btn_grid.columnconfigure(2, weight=1)
+        for col_idx in range(6):
+            preset_btn_grid.columnconfigure(col_idx, weight=1)
+
+        self.btn_preset_ultra_low = ttk.Button(
+            preset_btn_grid,
+            text=f"🌱 {self.t('preset_ultra_low')}",
+            command=lambda: self.apply_resource_preset("ultra_low"),
+        )
+        self.btn_preset_ultra_low.grid(row=0, column=0, columnspan=2, sticky="ew", padx=(0, 2), pady=(0, 4))
 
         self.btn_preset_low = ttk.Button(
             preset_btn_grid,
             text=f"⚡ {self.t('preset_low')}",
             command=lambda: self.apply_resource_preset("low"),
         )
-        self.btn_preset_low.grid(row=0, column=0, sticky="ew", padx=(0, 3))
+        self.btn_preset_low.grid(row=0, column=2, columnspan=2, sticky="ew", padx=(2, 2), pady=(0, 4))
 
         self.btn_preset_med = ttk.Button(
             preset_btn_grid,
             text=f"⭐ {self.t('preset_med')}",
             command=lambda: self.apply_resource_preset("medium"),
         )
-        self.btn_preset_med.grid(row=0, column=1, sticky="ew", padx=(3, 3))
+        self.btn_preset_med.grid(row=0, column=4, columnspan=2, sticky="ew", padx=(2, 0), pady=(0, 4))
 
         self.btn_preset_high = ttk.Button(
             preset_btn_grid,
             text=f"🚀 {self.t('preset_high')}",
             command=lambda: self.apply_resource_preset("high"),
         )
-        self.btn_preset_high.grid(row=0, column=2, sticky="ew", padx=(3, 0))
+        self.btn_preset_high.grid(row=1, column=0, columnspan=3, sticky="ew", padx=(0, 2), pady=(0, 4))
+
+        self.btn_preset_ultra = ttk.Button(
+            preset_btn_grid,
+            text=f"👑 {self.t('preset_ultra')}",
+            command=lambda: self.apply_resource_preset("ultra"),
+        )
+        self.btn_preset_ultra.grid(row=1, column=3, columnspan=3, sticky="ew", padx=(2, 0), pady=(0, 4))
 
         self.btn_benchmark_hw = ttk.Button(
             preset_btn_grid,
             text=self.t("btn_benchmark_hw"),
             command=self._start_hardware_benchmark,
         )
-        self.btn_benchmark_hw.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+        self.btn_benchmark_hw.grid(row=2, column=0, columnspan=6, sticky="ew", pady=(4, 0))
 
         # Status badge frame
         badge_frame = ttk.Frame(self.ez_template_card, style="Soft.TFrame", padding=(10, 8))
@@ -2034,7 +2053,19 @@ class ControlPanel:
             key = preset_key.strip().casefold()
             is_en = getattr(self.config, "ui_language", "id") == "en"
 
-            if key in ("low", "hemat"):
+            if key in ("ultra_low", "potato", "ultra hemat", "ultra_hemat"):
+                self.resource_preset_var.set("Ultra Hemat")
+                self.model_var.set("tiny")
+                self.beam_var.set("1")
+                self.stt_compute_type_var.set("int8")
+                self.stt_device_var.set("auto")
+                self.denoise_engine_var.set("dtln")
+                self.slang_normalization_var.set(True)
+                self.audio_clarity_var.set(True)
+                self.preset_badge_var.set(self.t("preset_badge_ultra_low"))
+                self.preset_desc_var.set(self.t("preset_desc_ultra_low"))
+
+            elif key in ("low", "hemat"):
                 self.resource_preset_var.set("Hemat")
                 self.model_var.set("base")
                 self.beam_var.set("1")
@@ -2073,8 +2104,8 @@ class ControlPanel:
                     self.model_var.set("whisper-medium-id")
                     desc = "🎯 Max ID Accuracy • whisper-medium-id • Float16 • Hybrid Denoise" if is_en else "🎯 Akurasi Maksimal Indo • whisper-medium-id • Float16 • Hybrid Denoise"
                 else:
-                    self.model_var.set("large-v3-turbo")
-                    desc = "🎯 Global 99+ Languages • large-v3-turbo • Float16 • Hybrid Denoise" if is_en else "🎯 Akurasi Global 99+ Bahasa • large-v3-turbo • Float16 • Hybrid Denoise"
+                    self.model_var.set("medium")
+                    desc = "🎯 High Accuracy • Medium Model • Float16 • Hybrid Denoise" if is_en else "🎯 Akurasi Tinggi • Model Medium • Float16 • Hybrid Denoise"
                 self.beam_var.set("5")
                 self.stt_compute_type_var.set("float16")
                 self.stt_device_var.set("auto")
@@ -2083,6 +2114,18 @@ class ControlPanel:
                 self.audio_clarity_var.set(True)
                 self.preset_badge_var.set("🟣 HIGH ACCURACY (HIGH SPEC)" if is_en else "🟣 AKURASI TINGGI (HIGH SPEC)")
                 self.preset_desc_var.set(desc)
+
+            elif key in ("ultra", "extreme", "studio", "ultra_studio", "ultra studio"):
+                self.resource_preset_var.set("Ultra Studio")
+                self.model_var.set("large-v3-turbo")
+                self.beam_var.set("5")
+                self.stt_compute_type_var.set("float16")
+                self.stt_device_var.set("auto")
+                self.denoise_engine_var.set("hybrid")
+                self.slang_normalization_var.set(True)
+                self.audio_clarity_var.set(True)
+                self.preset_badge_var.set(self.t("preset_badge_ultra"))
+                self.preset_desc_var.set(self.t("preset_desc_ultra"))
 
             self._update_preset_button_styles()
             self._update_vram_status()
@@ -2095,27 +2138,33 @@ class ControlPanel:
             return
         preset = self.resource_preset_var.get().strip().casefold()
         is_en = getattr(self.config, "ui_language", "id") == "en"
+        ultra_low_title = "🌱 Potato PC\nUltra Saver" if is_en else "🌱 Potato PC\nUltra Hemat"
         low_title = "⚡ Low Spec\nLightweight" if is_en else "⚡ Hemat\nLow Spec"
         med_title = "⭐ Recommended\nBalanced" if is_en else "⭐ Seimbang\nRecommended"
-        high_title = "🎯 High Spec\nAccurate" if is_en else "🎯 Akurasi\nHigh Spec"
+        high_title = "🚀 High Spec\nAccurate" if is_en else "🚀 Akurasi\nHigh Spec"
+        ultra_title = "👑 Ultra Studio\nExtreme" if is_en else "👑 Ultra Studio\nExtreme"
 
-        if preset in ("low", "hemat"):
+        # Reset all buttons to default style
+        if hasattr(self, "btn_preset_ultra_low"):
+            self.btn_preset_ultra_low.configure(style="TButton", text=ultra_low_title)
+        self.btn_preset_low.configure(style="TButton", text=low_title)
+        self.btn_preset_med.configure(style="TButton", text=med_title)
+        self.btn_preset_high.configure(style="TButton", text=high_title)
+        if hasattr(self, "btn_preset_ultra"):
+            self.btn_preset_ultra.configure(style="TButton", text=ultra_title)
+
+        if preset in ("ultra_low", "potato", "ultra hemat", "ultra_hemat"):
+            if hasattr(self, "btn_preset_ultra_low"):
+                self.btn_preset_ultra_low.configure(style="PresetActiveUltraLow.TButton", text=f"[✔] {ultra_low_title}")
+        elif preset in ("low", "hemat"):
             self.btn_preset_low.configure(style="PresetActiveLow.TButton", text=f"[✔] {low_title}")
-            self.btn_preset_med.configure(style="TButton", text=med_title)
-            self.btn_preset_high.configure(style="TButton", text=high_title)
         elif preset in ("medium", "balanced", "seimbang"):
-            self.btn_preset_low.configure(style="TButton", text=low_title)
             self.btn_preset_med.configure(style="PresetActiveMed.TButton", text=f"[✔] {med_title}")
-            self.btn_preset_high.configure(style="TButton", text=high_title)
         elif preset in ("high", "accuracy", "akurasi"):
-            self.btn_preset_low.configure(style="TButton", text=low_title)
-            self.btn_preset_med.configure(style="TButton", text=med_title)
             self.btn_preset_high.configure(style="PresetActiveHigh.TButton", text=f"[✔] {high_title}")
-        else:
-            # Custom
-            self.btn_preset_low.configure(style="TButton", text=low_title)
-            self.btn_preset_med.configure(style="TButton", text=med_title)
-            self.btn_preset_high.configure(style="TButton", text=high_title)
+        elif preset in ("ultra", "extreme", "studio", "ultra_studio", "ultra studio"):
+            if hasattr(self, "btn_preset_ultra"):
+                self.btn_preset_ultra.configure(style="PresetActiveUltra.TButton", text=f"[✔] {ultra_title}")
 
     def _start_hardware_benchmark(self) -> None:
         if self.pipeline and (self.pipeline.running or getattr(self.pipeline, "inference_busy", False)):
@@ -2154,9 +2203,11 @@ class ControlPanel:
             return
 
         preset_names = {
+            "ultra_low": self.t("preset_ultra_low"),
             "low": self.t("preset_low"),
             "medium": self.t("preset_med"),
             "high": self.t("preset_high"),
+            "ultra": self.t("preset_ultra"),
         }
         name = preset_names.get(result.recommended_preset, result.recommended_preset.title())
         msg = self.t("benchmark_apply_prompt", preset=name, details=result.details)
@@ -2168,7 +2219,10 @@ class ControlPanel:
         is_indo = ("indonesia" in source_lang)
         key = preset.strip().casefold()
         is_en = getattr(self.config, "ui_language", "id") == "en"
-        if key in ("low", "hemat"):
+        if key in ("ultra_low", "potato", "ultra hemat", "ultra_hemat"):
+            self.preset_badge_var.set(self.t("preset_badge_ultra_low"))
+            self.preset_desc_var.set(self.t("preset_desc_ultra_low"))
+        elif key in ("low", "hemat"):
             self.preset_badge_var.set("🟢 LOW SPEC (SAVER)" if is_en else "🟢 HEMAT (LOW SPEC)")
             self.preset_desc_var.set("⚡ Ultra Light • Base Model • Int8 • 1 Beam • DTLN Neural Denoise" if is_en else "⚡ Sangat Ringan • Model Base • Int8 • 1 Beam • DTLN Neural Denoise")
         elif key in ("medium", "balanced", "seimbang"):
@@ -2183,8 +2237,11 @@ class ControlPanel:
             if is_indo:
                 desc = "🎯 Max ID Accuracy • whisper-medium-id • Hybrid Denoise" if is_en else "🎯 Akurasi Maksimal Indo • whisper-medium-id • Hybrid Denoise"
             else:
-                desc = "🎯 Global 99+ Languages • large-v3-turbo • Hybrid Denoise" if is_en else "🎯 Akurasi Global • large-v3-turbo • Hybrid Denoise"
+                desc = "🎯 High Accuracy • Medium Model • Hybrid Denoise" if is_en else "🎯 Akurasi Tinggi • Model Medium • Hybrid Denoise"
             self.preset_desc_var.set(desc)
+        elif key in ("ultra", "extreme", "studio", "ultra_studio", "ultra studio"):
+            self.preset_badge_var.set(self.t("preset_badge_ultra"))
+            self.preset_desc_var.set(self.t("preset_desc_ultra"))
         else:
             self.preset_badge_var.set("⚡ CUSTOM" if is_en else "⚡ KUSTOM (CUSTOM)")
             self.preset_desc_var.set("⚙️ Settings manually configured in Engine & VAD Tab" if is_en else "⚙️ Pengaturan diatur secara manual melalui Tab Mesin & VAD")
@@ -2193,7 +2250,7 @@ class ControlPanel:
         if self._preset_internal_change:
             return
         preset = self.resource_preset_var.get().strip().casefold()
-        if preset in ("low", "medium", "high", "balanced", "accuracy", "hemat", "seimbang", "akurasi"):
+        if preset in ("ultra_low", "potato", "ultra hemat", "low", "medium", "high", "ultra", "extreme", "studio", "balanced", "accuracy", "hemat", "seimbang", "akurasi", "ultra studio"):
             self.apply_resource_preset(preset)
 
     def _on_advanced_setting_modified(self, *args) -> None:

@@ -87,6 +87,20 @@ class UiModesAndPresetsTest(unittest.TestCase):
             self.assertEqual(panel.denoise_engine_var.get(), "hybrid")
             self.assertIn("AKURASI", panel.preset_badge_var.get())
 
+            # 5b. Apply Ultra Low (Potato PC)
+            panel.apply_resource_preset("ultra_low")
+            self.assertEqual(panel.resource_preset_var.get(), "Ultra Hemat")
+            self.assertEqual(panel.model_var.get(), "tiny")
+            self.assertEqual(panel.beam_var.get(), "1")
+            self.assertIn("ULTRA HEMAT", panel.preset_badge_var.get())
+
+            # 5c. Apply Ultra Studio
+            panel.apply_resource_preset("ultra")
+            self.assertEqual(panel.resource_preset_var.get(), "Ultra Studio")
+            self.assertEqual(panel.model_var.get(), "large-v3-turbo")
+            self.assertEqual(panel.beam_var.get(), "5")
+            self.assertIn("ULTRA STUDIO", panel.preset_badge_var.get())
+
             # 6. Manual change in Advanced field triggers automatic switch to Custom
             panel.model_var.set("base")
             self.root.update()

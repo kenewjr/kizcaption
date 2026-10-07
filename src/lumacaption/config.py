@@ -256,7 +256,11 @@ class AppConfig:
             raise ValueError("Thread CPU harus 1–16")
         if type(self.mt_beam_size) is not int or self.mt_beam_size not in (1, 3):
             raise ValueError("Beam MT harus 1 atau 3")
-        if self.resource_preset not in ("Hemat", "Seimbang", "Akurasi", "Custom", "low", "medium", "high", "custom"):
+        valid_presets = (
+            "Ultra Hemat", "Hemat", "Seimbang", "Akurasi", "Ultra Studio", "Custom",
+            "ultra_low", "low", "medium", "high", "ultra", "custom", "potato", "extreme", "studio"
+        )
+        if self.resource_preset not in valid_presets:
             raise ValueError("Preset resource tidak valid")
         if self.ui_theme not in ("dark", "light"):
             raise ValueError("ui_theme harus 'dark' atau 'light'")

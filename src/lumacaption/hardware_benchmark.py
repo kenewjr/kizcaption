@@ -15,7 +15,7 @@ class BenchmarkResult:
     whisper_rtf_cpu: float
     whisper_rtf_cuda: float | None
     nllb_ms_per_sentence: float
-    recommended_preset: str  # "low", "medium", "high"
+    recommended_preset: str  # "ultra_low", "low", "medium", "high", "ultra"
     details: str
 
 
@@ -32,11 +32,15 @@ def compute_recommendation(
     best_rtf = max(rtf_cpu, rtf_cuda if rtf_cuda is not None else 0.0)
     has_cuda = rtf_cuda is not None and rtf_cuda > 0.0
 
+    if has_cuda and rtf_cuda >= 6.5 and nllb_ms <= 50.0:
+        return "ultra"
     if has_cuda and rtf_cuda >= 4.0 and nllb_ms <= 150.0:
         return "high"
     if best_rtf >= 1.8:
         return "medium"
-    return "low"
+    if best_rtf >= 1.0:
+        return "low"
+    return "ultra_low"
 
 
 def run_hardware_benchmark(

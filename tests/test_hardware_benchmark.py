@@ -31,6 +31,14 @@ class HardwareBenchmarkTests(unittest.TestCase):
         rec_low = compute_recommendation(rtf_cpu=1.1, rtf_cuda=None, nllb_ms=220.0)
         self.assertEqual(rec_low, "low")
 
+        # 4. Ultra studio when CUDA is blazing fast (>= 6.5x) and MT is very fast (<= 50ms)
+        rec_ultra = compute_recommendation(rtf_cpu=3.0, rtf_cuda=7.8, nllb_ms=38.0)
+        self.assertEqual(rec_ultra, "ultra")
+
+        # 5. Ultra low (potato) when CPU is very slow (< 1.0x)
+        rec_ul = compute_recommendation(rtf_cpu=0.6, rtf_cuda=None, nllb_ms=350.0)
+        self.assertEqual(rec_ul, "ultra_low")
+
     @patch("lumacaption.stt.whisper_engine.WhisperEngine")
     @patch("lumacaption.mt.nllb_engine.NllbEngine")
     @patch("lumacaption.hardware_benchmark.is_cuda_available", return_value=False)
