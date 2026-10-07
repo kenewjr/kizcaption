@@ -220,7 +220,7 @@ class EngineComputeAndCacheTests(unittest.TestCase):
                 engine._translator = mock_cpu_translator
                 engine._sentencepiece = mock_sp
             mock_load.side_effect = fake_load
-            res = engine.translate("Halo", "ind_Latn", ["English"])
+            res = engine.translate("Percobaan", "ind_Latn", ["English"])
 
         self.assertEqual(res, {"English": "sukses"})
         self.assertEqual(engine.active_device, "cpu")
@@ -362,7 +362,7 @@ class EngineComputeAndCacheTests(unittest.TestCase):
         with patch.object(engine, "_preferred_device", return_value="cuda"), \
              patch.object(engine, "_load", side_effect=RuntimeError("Corrupt model archive")):
             with self.assertRaises(RuntimeError) as ctx:
-                engine.translate("Halo", "ind_Latn", ["English"])
+                engine.translate("Percobaan", "ind_Latn", ["English"])
             self.assertIn("All NLLB fallbacks failed", str(ctx.exception))
             self.assertIn("Corrupt model archive", str(ctx.exception))
         # Ensure non-device error is not mislabeled as CUDA unavailable
@@ -381,7 +381,7 @@ class EngineComputeAndCacheTests(unittest.TestCase):
         mock_res.hypotheses = [["eng_Latn", "hello", "</s>"]]
         mock_cpu_translator.translate_batch.return_value = [mock_res]
         mock_sp = MagicMock()
-        mock_sp.encode.return_value = ["halo"]
+        mock_sp.encode.return_value = ["percobaan"]
         mock_sp.decode.return_value = "hello"
 
         def fake_load(device):
@@ -393,7 +393,7 @@ class EngineComputeAndCacheTests(unittest.TestCase):
 
         with patch.object(engine, "_preferred_device", return_value="cuda"), \
              patch.object(engine, "_load", side_effect=fake_load):
-            res = engine.translate("Halo", "ind_Latn", ["English"])
+            res = engine.translate("Percobaan", "ind_Latn", ["English"])
 
         self.assertEqual(res, {"English": "hello"})
         self.assertEqual(engine.active_device, "cpu")
@@ -416,7 +416,7 @@ class EngineComputeAndCacheTests(unittest.TestCase):
         with patch.object(engine, "_preferred_device", return_value="cuda"), \
              patch.object(engine, "_load", side_effect=fake_load):
             with self.assertRaises(RuntimeError) as ctx:
-                engine.translate("Halo", "ind_Latn", ["English"])
+                engine.translate("Percobaan", "ind_Latn", ["English"])
             self.assertIn("All NLLB fallbacks failed", str(ctx.exception))
             self.assertIn("CPU out of memory", str(ctx.exception))
         self.assertTrue(any("CUDA unavailable" in w for w in warnings))

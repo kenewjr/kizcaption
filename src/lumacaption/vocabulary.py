@@ -16,6 +16,8 @@ STOP_WORDS = {
     "seperti", "dalam", "bagi", "oleh", "tentang", "atau", "saat", "bila", "jika",
     "maka", "agar", "supaya", "hingga", "sampai", "bahkan", "pun", "apa", "siapa",
     "bagaimana", "mengapa", "kenapa", "kapan", "dimana", "mana", "tersebut", "sama",
+    "apakah", "kabar", "halo", "helo", "hai", "baik", "terima", "kasih", "makasih",
+    "salam", "bye", "bar", "iya", "ya", "yah", "kan", "lah", "dong", "sih", "kok", "deh",
     "the", "and", "in", "to", "of", "a", "an", "is", "it", "you", "that", "he",
     "was", "for", "on", "are", "as", "with", "his", "they", "at", "be", "this",
     "have", "from", "or", "one", "had", "by", "word", "but", "not", "what", "all",
