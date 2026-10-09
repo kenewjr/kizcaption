@@ -1185,6 +1185,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "Gagal memeriksa pembaruan dari GitHub",
         "en": "Failed to check for updates from GitHub",
     },
+    "chk_translation_review_log": {
+        "id": "Simpan log ucapan + terjemahan untuk ditinjau (opsional)",
+        "en": "Save speech + translation log for review (optional)",
+    },
+    "lbl_translation_review_log_note": {
+        "id": "Menyimpan teks ucapan Anda dan hasil terjemahannya secara lokal. Nonaktif secara default. Hanya dikirim ke developer jika Anda ekspor dan kirim sendiri secara manual.",
+        "en": "Stores your spoken text and its translations locally. Off by default. Only sent to the developer if you export and send it yourself.",
+    },
+    "btn_export_review_log": {
+        "id": "📤 Ekspor Log Terjemahan",
+        "en": "📤 Export Translation Log",
+    },
+    "btn_clear_review_log": {
+        "id": "🗑 Hapus Log Terjemahan",
+        "en": "🗑 Clear Translation Log",
+    },
 }
 
 

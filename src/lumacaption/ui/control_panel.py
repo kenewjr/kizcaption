@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import queue
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -602,6 +603,7 @@ class ControlPanel:
         self.audio_clarity_var = tk.BooleanVar(value=getattr(self.config, "audio_clarity", True))
         self.slang_normalization_var = tk.BooleanVar(value=getattr(self.config, "slang_normalization", True))
         self.profanity_filter_var = tk.BooleanVar(value=getattr(self.config, "profanity_filter", False))
+        self.translation_review_var = tk.BooleanVar(value=getattr(self.config, "translation_review_log", False))
         self.denoise_engine_var = tk.StringVar(value=getattr(self.config, "denoise_engine", "clarity"))
         self.target_vars = [tk.StringVar() for _ in range(3)]
         self.overlay_port_var = tk.StringVar()
@@ -1389,21 +1391,42 @@ class ControlPanel:
         ttk.Button(btn_row, text="📋 Salin Log Error" if not is_en else "📋 Copy Error Log", command=self._copy_recent_logs).pack(side="left", padx=4)
         ttk.Button(btn_row, text=self.t("btn_check_updates"), command=self.check_for_updates_ui).pack(side="left", padx=4)
 
+        if not hasattr(self, "translation_review_var"):
+            self.translation_review_var = tk.BooleanVar(value=getattr(self.config, "translation_review_log", False))
+        ttk.Checkbutton(
+            parent,
+            text=self.t("chk_translation_review_log"),
+            variable=self.translation_review_var,
+            command=self._on_translation_review_toggle,
+        ).pack(anchor="w", pady=(8, 0))
+        self._wrapped_label(parent, text=self.t("lbl_translation_review_log_note"), style="Muted.TLabel").pack(fill="x", pady=(0, 8))
+
+        btn_row2 = ttk.Frame(parent)
+        btn_row2.pack(fill="x", pady=4)
+        ttk.Button(btn_row2, text=self.t("btn_export_review_log"), command=self._export_review_log).pack(side="left", padx=4)
+        ttk.Button(btn_row2, text=self.t("btn_clear_review_log"), command=self._clear_review_log).pack(side="left", padx=4)
+
+    def _on_translation_review_toggle(self) -> None:
+        val = bool(self.translation_review_var.get())
+        self.config.translation_review_log = val
+        try:
+            self.config_store.save(self.config)
+        except Exception:
+            pass
+
     def _copy_recent_logs(self) -> None:
-        log_files = [self.app_dir / "logs" / "kizcaption.log", self.app_dir / "logs" / "diagnostic.log"]
+        logs_dir = self.app_dir / "logs"
+        log_files = sorted(logs_dir.glob("kizcaption-*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
         content = ""
-        for lf in log_files:
-            if lf.is_file():
-                try:
-                    with open(lf, "r", encoding="utf-8", errors="replace") as f:
-                        lines = f.readlines()
-                        content = "".join(lines[-100:])
-                        if content.strip():
-                            break
-                except Exception:
-                    pass
+        if log_files:
+            try:
+                with open(log_files[0], "r", encoding="utf-8", errors="replace") as f:
+                    lines = f.readlines()
+                    content = "".join(lines[-200:])
+            except Exception:
+                pass
         is_en = (getattr(self.config, "ui_language", "id") == "en")
-        if content:
+        if content.strip():
             self.root.clipboard_clear()
             self.root.clipboard_append(content)
             messagebox.showinfo(
@@ -1414,7 +1437,38 @@ class ControlPanel:
                 parent=self.root,
             )
         else:
-            self._open_dir(self.app_dir / "logs")
+            self._open_dir(logs_dir)
+
+    def _export_review_log(self) -> None:
+        src = self.app_dir / "logs" / "translation_review.jsonl"
+        is_en = (getattr(self.config, "ui_language", "id") == "en")
+        if not src.is_file() or src.stat().st_size == 0:
+            messagebox.showinfo(
+                "Belum Ada Data" if not is_en else "No Data Yet",
+                "Belum ada log untuk diekspor. Aktifkan opsi log review terlebih dahulu dan jalankan sesi caption."
+                if not is_en else
+                "Nothing to export yet. Enable the review log option first and run a caption session.",
+                parent=self.root,
+            )
+            return
+        dest = filedialog.asksaveasfilename(
+            title=self.t("btn_export_review_log"),
+            defaultextension=".jsonl",
+            initialfile="kizcaption-translation-review.jsonl",
+            parent=self.root,
+        )
+        if not dest:
+            return
+        shutil.copyfile(src, dest)
+        messagebox.showinfo("OK", f"{'Tersimpan di' if not is_en else 'Saved to'}: {dest}", parent=self.root)
+
+    def _clear_review_log(self) -> None:
+        src = self.app_dir / "logs" / "translation_review.jsonl"
+        if src.is_file():
+            src.unlink(missing_ok=True)
+        backup = self.app_dir / "logs" / "translation_review.jsonl.1"
+        if backup.is_file():
+            backup.unlink(missing_ok=True)
 
     def check_for_updates_ui(self) -> None:
         is_en = getattr(self.config, "ui_language", "id") == "en"
@@ -1936,6 +1990,8 @@ class ControlPanel:
             self.audio_clarity_var.set(getattr(config, "audio_clarity", True))
             self.slang_normalization_var.set(getattr(config, "slang_normalization", True))
             self.profanity_filter_var.set(getattr(config, "profanity_filter", False))
+            if hasattr(self, "translation_review_var"):
+                self.translation_review_var.set(getattr(config, "translation_review_log", False))
             self.denoise_engine_var.set(getattr(config, "denoise_engine", "clarity"))
             self.overlay_port_var.set(str(config.overlay.port))
             self.theme_var.set(config.overlay.theme)
@@ -2581,6 +2637,7 @@ class ControlPanel:
             regional_assistance=self.config.regional_assistance,
             ui_theme=self._theme_name,
             ui_language=getattr(self.config, "ui_language", "id"),
+            translation_review_log=bool(self.translation_review_var.get()) if hasattr(self, "translation_review_var") else getattr(self.config, "translation_review_log", False),
         )
 
     def save(self, *, announce: bool = True) -> AppConfig | None:

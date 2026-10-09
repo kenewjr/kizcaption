@@ -83,6 +83,49 @@ class LoggingAndQueueTests(unittest.TestCase):
                     handler.close()
                     logger.removeHandler(handler)
 
+    def test_copy_recent_logs_selects_latest_mtime(self):
+        import os
+        import time
+        from unittest.mock import MagicMock
+        from lumacaption.ui.control_panel import ControlPanel
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_dir = Path(tmpdir)
+            logs_dir = app_dir / "logs"
+            logs_dir.mkdir(parents=True, exist_ok=True)
+
+            file_a = logs_dir / "kizcaption-2026-10-09_12-00-00.log"
+            file_a.write_text("file A content\n", encoding="utf-8")
+
+            file_b = logs_dir / "kizcaption-2026-10-09_18-00-00.log"
+            file_b.write_text("file B content\n", encoding="utf-8")
+
+            # File A is alphabetically earlier, but set its mtime to newest
+            now = time.time()
+            os.utime(file_b, (now - 100, now - 100))
+            os.utime(file_a, (now, now))
+
+            dummy_panel = MagicMock()
+            dummy_panel.app_dir = app_dir
+            dummy_panel.config = AppConfig()
+            dummy_panel.root = MagicMock()
+
+            with MagicMock() as mock_msgbox:
+                import lumacaption.ui.control_panel as cp_module
+                original_msgbox = cp_module.messagebox
+                cp_module.messagebox = mock_msgbox
+                try:
+                    ControlPanel._copy_recent_logs(dummy_panel)
+                finally:
+                    cp_module.messagebox = original_msgbox
+
+            dummy_panel.root.clipboard_clear.assert_called_once()
+            dummy_panel.root.clipboard_append.assert_called_once()
+            copied = dummy_panel.root.clipboard_append.call_args[0][0]
+            self.assertIn("file A content", copied)
+            self.assertNotIn("file B content", copied)
+
 
 if __name__ == "__main__":
     unittest.main()
+

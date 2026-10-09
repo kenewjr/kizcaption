@@ -4,7 +4,9 @@ import asyncio
 from collections.abc import Callable
 import ctypes
 from dataclasses import dataclass
+from datetime import datetime
 import gc
+import json
 import logging
 from pathlib import Path
 import queue
@@ -94,6 +96,29 @@ class CaptionPipeline:
             self.on_event(PipelineEvent(kind, message, data))
         except Exception:
             pass
+
+    def _append_review_log(self, detected_lang, source_code, source_text, translations, stt_ms, mt_ms) -> None:
+        try:
+            log_dir = self.app_dir / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            path = log_dir / "translation_review.jsonl"
+            # Rotasi manual sederhana: kalau file sudah > 5MB, geser ke .jsonl.1 (timpa yang lama)
+            if path.exists() and path.stat().st_size > 5_242_880:
+                backup = log_dir / "translation_review.jsonl.1"
+                path.replace(backup)
+            entry = {
+                "ts": datetime.now().isoformat(timespec="seconds"),
+                "detected_language": detected_lang,
+                "source_code": source_code,
+                "source_text": source_text,
+                "translations": translations,
+                "stt_ms": round(stt_ms, 1),
+                "mt_ms": round(mt_ms, 1),
+            }
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            logger.warning(f"Gagal menulis translation review log: {exc}")
 
     def start(self) -> None:
         if self.running or self.inference_busy:
@@ -416,7 +441,11 @@ class CaptionPipeline:
                         if do_censor:
                             translations = {k: censor_text(v, True) for k, v in translations.items()}
 
-                        self._emit("translations", "Translations ready", translations)
+                        translations_summary = " | ".join(f"{lang}={text}" for lang, text in translations.items())
+                        self._emit("translations", translations_summary, translations)
+                        if getattr(self.config, "translation_review_log", False):
+                            self._append_review_log(transcript.language, source_code, display_text, translations, stt_ms, mt_ms)
+
                         loop = self._loop
                         if loop and loop.is_running():
                             loop.call_soon_threadsafe(schedule_publish, translations, {

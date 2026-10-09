@@ -152,6 +152,7 @@ class AppConfig:
     ui_mode: str = "ez"
     ui_language: str = "id"
     profanity_filter: bool = False
+    translation_review_log: bool = False
 
     def __post_init__(self) -> None:
         # Preserve explicit slot IDs; optional output 2 must not renumber output 3.
