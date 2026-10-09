@@ -163,7 +163,7 @@
   "cpu_threads": 4,
   "mt_beam_size": 1,
   "resource_preset": "Custom",
-  "vocabulary_packages": ["names", "brands"],
+  "vocabulary_packages": ["names", "brands", "id"],
   "regional_assistance": false,
   "ui_theme": "dark",
   "slang_normalization": true,

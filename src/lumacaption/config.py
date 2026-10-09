@@ -144,7 +144,7 @@ class AppConfig:
     cpu_threads: int = 4
     mt_beam_size: int = 1
     resource_preset: str = "Custom"
-    vocabulary_packages: list[str] = field(default_factory=lambda: ["names", "brands"])
+    vocabulary_packages: list[str] = field(default_factory=lambda: ["names", "brands", "id"])
     regional_assistance: bool = False
     ui_theme: str = "dark"
     slang_normalization: bool = True

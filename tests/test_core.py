@@ -368,7 +368,7 @@ class CoreTests(unittest.TestCase):
 
     def test_version_and_metadata(self):
         import lumacaption
-        self.assertEqual(lumacaption.__version__, "1.0.9")
+        self.assertEqual(lumacaption.__version__, "1.0.10")
         self.assertIn("kenewjr", lumacaption.CREDIT)
 
     def test_target_profiles_preserved_with_gaps(self):
