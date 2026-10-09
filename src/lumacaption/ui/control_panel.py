@@ -759,6 +759,11 @@ class ControlPanel:
                       font=("Segoe UI Semibold", 12)).grid(row=1, column=index, sticky="w")
         self._wrapped_label(mic_card, textvariable=self.audio_device_var, style="Muted.TLabel").pack(fill="x")
         self._wrapped_label(mic_card, textvariable=self.audio_hint_var, style="Card.TLabel").pack(fill="x", pady=(4, 0))
+        ttk.Button(
+            mic_card,
+            text=self.t("btn_audio_calibrate"),
+            command=self.open_audio_calibration_dialog,
+        ).pack(fill="x", pady=(6, 2))
 
         # Targets in left card
         lang_card = self._card(left, self.t("card_caption_lang"), self.t("card_caption_lang_sub"))
@@ -997,6 +1002,12 @@ class ControlPanel:
             style="Muted.TLabel",
         ).pack(fill="x", pady=(4, 0))
 
+        ttk.Button(
+            vad_card,
+            text=self.t("btn_audio_calibrate"),
+            command=self.open_audio_calibration_dialog,
+        ).pack(fill="x", pady=(8, 2))
+
         # Card 4: Audio Pre-processing & Port
         dsp_card = self._card(self.engine_right, self.t("card_dsp_title"), self.t("card_dsp_sub"))
         self._compact_combo_field(dsp_card, self.t("field_channel"), ("mix", "left", "right"), self.audio_channel_var)
@@ -1015,6 +1026,12 @@ class ControlPanel:
         port_sp = ttk.Spinbox(port_r, from_=1024, to=65535, textvariable=self.overlay_port_var)
         port_sp.grid(row=0, column=1, sticky="ew")
         self._track(port_sp)
+
+        ttk.Button(
+            dsp_card,
+            text=self.t("btn_audio_calibrate"),
+            command=self.open_audio_calibration_dialog,
+        ).pack(fill="x", pady=(8, 2))
 
         # Card 5: Vocabulary & Adaptive Learning
         vocab_card = self._card(self.engine_right, self.t("card_vocab_hints_title"), self.t("card_vocab_hints_sub"))
@@ -2286,6 +2303,206 @@ class ControlPanel:
         msg = self.t("benchmark_apply_prompt", preset=name, details=result.details)
         if messagebox.askyesno(self.t("benchmark_result_title"), msg):
             self.apply_resource_preset(result.recommended_preset)
+
+    def open_audio_calibration_dialog(self) -> None:
+        if self.pipeline and (self.pipeline.running or getattr(self.pipeline, "inference_busy", False)):
+            is_en = (getattr(self.config, "ui_language", "id") == "en")
+            messagebox.showwarning(
+                self.t("dialog_audio_cal_title"),
+                "Hentikan sesi live captioning terlebih dahulu sebelum menguji mikrofon." if not is_en else "Please stop the live captioning session first before testing microphone.",
+                parent=self.root,
+            )
+            return
+
+        c = self.colors
+        is_en = (getattr(self.config, "ui_language", "id") == "en")
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self.t("dialog_audio_cal_title"))
+        dlg.geometry("540x520")
+        dlg.minsize(480, 460)
+        dlg.transient(self.root)
+        dlg.configure(bg=c["bg"])
+
+        try:
+            x = self.root.winfo_x() + (self.root.winfo_width() - 540) // 2
+            y = self.root.winfo_y() + (self.root.winfo_height() - 520) // 2
+            dlg.geometry(f"+{max(0, x)}+{max(0, y)}")
+        except Exception:
+            pass
+
+        selected_dev = self._devices.get(self.mic_var.get())
+        dev_name = selected_dev.name if selected_dev else "Default"
+        dev_key = selected_dev.key if selected_dev else None
+
+        pad_f = ttk.Frame(dlg, padding=16)
+        pad_f.pack(fill="both", expand=True)
+
+        header_lbl = ttk.Label(
+            pad_f,
+            text=f"🎙️ {dev_name}",
+            font=("Segoe UI Semibold", 11),
+            foreground=c["cyan"],
+        )
+        header_lbl.pack(anchor="w", pady=(0, 4))
+
+        instruct_lbl = self._wrapped_label(
+            pad_f,
+            text=self.t("cal_instruction"),
+            style="Muted.TLabel",
+        )
+        instruct_lbl.pack(fill="x", pady=(0, 12))
+
+        live_box = ttk.LabelFrame(pad_f, text=self.t("meter_peak"), padding=10)
+        live_box.pack(fill="x", pady=(0, 12))
+
+        status_var = tk.StringVar(value="Siap untuk menguji." if not is_en else "Ready to test.")
+        status_lbl = ttk.Label(live_box, textvariable=status_var, font=("Segoe UI Semibold", 10), foreground=c["text"])
+        status_lbl.pack(anchor="w", pady=(0, 6))
+
+        pbar = ttk.Progressbar(live_box, mode="determinate", maximum=100, style="Audio.Horizontal.TProgressbar")
+        pbar.pack(fill="x", pady=(0, 6))
+
+        live_metrics_var = tk.StringVar(value="Peak: 0.00 • VAD: 0%")
+        live_metrics_lbl = ttk.Label(live_box, textvariable=live_metrics_var, style="Muted.TLabel", font=("Consolas", 9))
+        live_metrics_lbl.pack(anchor="w")
+
+        res_box = ttk.LabelFrame(pad_f, text=self.t("benchmark_result_title"), padding=10)
+        res_box.pack(fill="both", expand=True, pady=(0, 12))
+
+        res_summary_var = tk.StringVar(value="Belum ada data pengujian." if not is_en else "No test data yet.")
+        res_summary_lbl = self._wrapped_label(res_box, textvariable=res_summary_var, font=("Segoe UI", 9))
+        res_summary_lbl.pack(fill="x", pady=(0, 8))
+
+        recs_container = ttk.Frame(res_box)
+        recs_container.pack(fill="both", expand=True)
+
+        rec_vars: list[Any] = []
+        cancelled = [False]
+
+        btn_bar = ttk.Frame(pad_f)
+        btn_bar.pack(fill="x", pady=(4, 0))
+
+        start_btn = ttk.Button(btn_bar, text=self.t("cal_btn_start"), style="Accent.TButton")
+        start_btn.pack(side="left", padx=(0, 8))
+
+        apply_btn = ttk.Button(btn_bar, text=self.t("cal_btn_apply"), state="disabled")
+        apply_btn.pack(side="left", padx=(0, 8))
+
+        close_btn = ttk.Button(btn_bar, text="Tutup" if not is_en else "Close", command=dlg.destroy)
+        close_btn.pack(side="right")
+
+        def on_close():
+            cancelled[0] = True
+            dlg.destroy()
+
+        dlg.protocol("WM_DELETE_WINDOW", on_close)
+
+        def do_test():
+            start_btn.configure(state="disabled")
+            apply_btn.configure(state="disabled")
+            pbar.configure(value=0)
+            status_var.set(self.t("cal_btn_running", remaining=5.0))
+            for widget in recs_container.winfo_children():
+                widget.destroy()
+
+            def progress_cb(remaining: float, peak: float, prob: float):
+                def update_ui():
+                    if cancelled[0] or not dlg.winfo_exists():
+                        return
+                    status_var.set(self.t("cal_btn_running", remaining=remaining))
+                    pct = min(100.0, max(0.0, peak * 100.0))
+                    pbar.configure(value=pct)
+                    live_metrics_var.set(f"Peak: {peak:.2f} ({20*math.log10(max(1e-5, peak)):.1f} dBFS) • VAD: {prob*100:.0f}%")
+                dlg.after_idle(update_ui)
+
+            def worker():
+                try:
+                    from lumacaption.audio.calibration import run_audio_calibration
+                    res = run_audio_calibration(
+                        app_dir=self.app_dir,
+                        device_key=dev_key,
+                        channel=self.audio_channel_var.get(),
+                        gain_db=float(self.audio_gain_var.get()),
+                        clarity=bool(self.audio_clarity_var.get()),
+                        denoise_engine=self.denoise_engine_var.get(),
+                        normalize_audio=bool(self.normalize_audio_var.get()),
+                        vad_threshold=float(self.vad_var.get()),
+                        silence_gap_ms=int(self.silence_var.get()),
+                        max_duration_sec=int(self.duration_var.get()),
+                        duration_sec=5.0,
+                        on_progress=progress_cb,
+                        is_cancelled=lambda: cancelled[0],
+                        lang=getattr(self.config, "ui_language", "id"),
+                    )
+                    dlg.after(0, on_done, res, None)
+                except Exception as exc:
+                    dlg.after(0, on_done, None, exc)
+
+            threading.Thread(target=worker, daemon=True).start()
+
+        def on_done(res, error):
+            if cancelled[0] or not dlg.winfo_exists():
+                return
+            start_btn.configure(state="normal", text="🔄 Uji Ulang (5 Detik)" if not is_en else "🔄 Re-test (5s)")
+            pbar.configure(value=0)
+
+            if error:
+                status_var.set(f"Gagal menguji: {error}" if not is_en else f"Test failed: {error}")
+                return
+
+            rec_vars.clear()
+            rec_vars.append(res)
+            status_var.set("Pengujian Selesai!" if not is_en else "Testing Completed!")
+            res_summary_var.set(res.summary_text)
+
+            for w in recs_container.winfo_children():
+                w.destroy()
+
+            has_recs = bool(res.recommendations)
+            if has_recs:
+                apply_btn.configure(state="normal")
+                for rec_text in res.recommendations:
+                    row = ttk.Frame(recs_container)
+                    row.pack(fill="x", pady=2)
+                    ttk.Label(row, text="💡", font=("Segoe UI", 9)).pack(side="left", padx=(0, 6))
+                    self._wrapped_label(row, text=rec_text, font=("Segoe UI Semibold", 9), foreground=c["amber"]).pack(side="left", fill="x", expand=True)
+            else:
+                apply_btn.configure(state="disabled")
+                row = ttk.Frame(recs_container)
+                row.pack(fill="x", pady=4)
+                ttk.Label(row, text="✅", font=("Segoe UI", 10)).pack(side="left", padx=(0, 6))
+                self._wrapped_label(row, text=self.t("cal_no_rec_msg"), font=("Segoe UI Semibold", 9), foreground=c["green"]).pack(side="left", fill="x", expand=True)
+
+        def do_apply():
+            if not rec_vars:
+                return
+            res = rec_vars[0]
+            if res.recommended_gain_db is not None:
+                self.audio_gain_var.set(res.recommended_gain_db)
+            if res.recommended_vad_threshold is not None:
+                self.vad_var.set(res.recommended_vad_threshold)
+            if res.recommended_auto_normalize is not None:
+                self.normalize_audio_var.set(res.recommended_auto_normalize)
+
+            try:
+                config = self._collect()
+                config.validate()
+                self.config_store.save(config)
+                self.config = config
+            except Exception:
+                pass
+
+            messagebox.showinfo(
+                self.t("dialog_audio_cal_title"),
+                self.t("cal_applied_msg"),
+                parent=dlg,
+            )
+            apply_btn.configure(state="disabled")
+
+        start_btn.configure(command=do_test)
+        apply_btn.configure(command=do_apply)
+
 
     def _sync_preset_badge(self, preset: str) -> None:
         source_lang = self.source_var.get().strip().casefold()

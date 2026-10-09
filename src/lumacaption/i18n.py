@@ -1201,7 +1201,40 @@ STRINGS: dict[str, dict[str, str]] = {
         "id": "🗑 Hapus Log Terjemahan",
         "en": "🗑 Clear Translation Log",
     },
+    "btn_audio_calibrate": {
+        "id": "🎙️ Uji Suara & Kalibrasi VAD (5 Detik)",
+        "en": "🎙️ Test Voice & Calibrate VAD (5s)",
+    },
+    "dialog_audio_cal_title": {
+        "id": "Kalibrasi Mikrofon & Deteksi Suara VAD",
+        "en": "Microphone & Silero VAD Calibration",
+    },
+    "cal_instruction": {
+        "id": "Klik tombol 'Mulai Uji Suara' di bawah, lalu bicaralah 1-2 kalimat secara normal selama 5 detik untuk menguji kepekaan VAD, gain mic, dan peredam bising.",
+        "en": "Click 'Start Audio Test' below, then speak 1-2 sentences normally for 5 seconds to calibrate VAD sensitivity, mic gain, and noise reduction.",
+    },
+    "cal_btn_start": {
+        "id": "▶ Mulai Uji Suara (5 Detik)",
+        "en": "▶ Start Audio Test (5s)",
+    },
+    "cal_btn_running": {
+        "id": "Merekam & Menguji… ({remaining:.1f}s)",
+        "en": "Recording & Testing… ({remaining:.1f}s)",
+    },
+    "cal_btn_apply": {
+        "id": "⚡ Terapkan Rekomendasi",
+        "en": "⚡ Apply Recommendations",
+    },
+    "cal_applied_msg": {
+        "id": "Pengaturan Gain Mic dan Ambang VAD berhasil disesuaikan!",
+        "en": "Mic Gain and VAD Threshold settings applied successfully!",
+    },
+    "cal_no_rec_msg": {
+        "id": "Pengaturan audio dan VAD Anda saat ini sudah optimal!",
+        "en": "Your audio and VAD settings are already optimal!",
+    },
 }
+
 
 
 def t(key: str, lang: str | None = None, **kwargs: Any) -> str:
