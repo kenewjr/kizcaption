@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import math
 import queue
 import re
+import sys
 import threading
 import time
 from typing import Any
@@ -457,6 +458,13 @@ class MicrophoneCapture:
                 self._frames.get_nowait()
             except queue.Empty:
                 break
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.ole32.CoInitializeEx(None, 0)
+            except Exception:
+                pass
+
         kwargs: dict[str, Any] = {
             "samplerate": selected.sample_rate,
             "blocksize": max(128, round(selected.sample_rate * FRAME_SAMPLES / SAMPLE_RATE)),
@@ -481,6 +489,8 @@ class MicrophoneCapture:
         self._stream = stream
         self._last_frame_at = time.monotonic()
         return selected
+
+
 
     def stop(self) -> None:
         if self._closed.is_set() and self._stream is None:

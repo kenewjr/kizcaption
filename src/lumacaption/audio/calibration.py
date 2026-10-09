@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from pathlib import Path
+import sys
 import time
 from typing import Any, Callable
 
@@ -162,11 +163,22 @@ def run_audio_calibration(
     lang: str = "id",
 ) -> AudioCalibrationResult:
     """Capture live microphone audio for duration_sec, analyze with Silero VAD, and return evaluation."""
+    com = None
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            res = ctypes.windll.ole32.CoInitializeEx(None, 0)
+            if res in (0, 1):
+                com = ctypes.windll.ole32
+        except Exception:
+            pass
+
     capture_cls = capture_factory or MicrophoneCapture
     silero_cls = silero_factory or SileroOnnx
 
     silero_model_path = app_dir / "models" / "silero_vad.onnx"
     silero = silero_cls(silero_model_path)
+
     vad = VadSegmenter(
         model=silero,
         threshold=vad_threshold,
@@ -226,6 +238,11 @@ def run_audio_calibration(
                 on_progress(remaining, peak, prob)
     finally:
         capture.stop()
+        if com:
+            try:
+                com.CoUninitialize()
+            except Exception:
+                pass
 
     return evaluate_calibration(
         peaks=peaks,

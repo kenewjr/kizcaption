@@ -2417,6 +2417,15 @@ class ControlPanel:
                 dlg.after_idle(update_ui)
 
             def worker():
+                com = None
+                if sys.platform == "win32":
+                    try:
+                        import ctypes
+                        res = ctypes.windll.ole32.CoInitializeEx(None, 0)
+                        if res in (0, 1):
+                            com = ctypes.windll.ole32
+                    except Exception:
+                        pass
                 try:
                     from lumacaption.audio.calibration import run_audio_calibration
                     res = run_audio_calibration(
@@ -2438,6 +2447,13 @@ class ControlPanel:
                     dlg.after(0, on_done, res, None)
                 except Exception as exc:
                     dlg.after(0, on_done, None, exc)
+                finally:
+                    if com:
+                        try:
+                            com.CoUninitialize()
+                        except Exception:
+                            pass
+
 
             threading.Thread(target=worker, daemon=True).start()
 
