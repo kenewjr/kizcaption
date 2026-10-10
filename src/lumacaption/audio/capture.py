@@ -241,6 +241,7 @@ class MicrophoneCapture:
         self._dsp: VocalClarityProcessor | None = VocalClarityProcessor() if (clarity and denoise_engine in ("clarity", "hybrid")) else None
         self._denoiser: DtlnDenoiser | None = DtlnDenoiser(model_dir) if denoise_engine in ("dtln", "hybrid") else None
         self.active_device: InputDevice | None = None
+        self._com_initialized = False
 
     @staticmethod
     def _key(name: str) -> str:
@@ -461,7 +462,9 @@ class MicrophoneCapture:
         if sys.platform == "win32":
             try:
                 import ctypes
-                ctypes.windll.ole32.CoInitializeEx(None, 0)
+                res = ctypes.windll.ole32.CoInitializeEx(None, 0)
+                if res in (0, 1):
+                    self._com_initialized = True
             except Exception:
                 pass
 
@@ -502,6 +505,13 @@ class MicrophoneCapture:
                 stream.abort(ignore_errors=True)
             finally:
                 stream.close(ignore_errors=True)
+        if getattr(self, "_com_initialized", False) and sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.ole32.CoUninitialize()
+            except Exception:
+                pass
+            self._com_initialized = False
         try:
             self._frames.put_nowait(_STOP)
         except queue.Full:

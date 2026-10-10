@@ -2501,6 +2501,8 @@ class ControlPanel:
                 self.vad_var.set(res.recommended_vad_threshold)
             if res.recommended_auto_normalize is not None:
                 self.normalize_audio_var.set(res.recommended_auto_normalize)
+            if res.recommended_denoise_engine is not None:
+                self.denoise_engine_var.set(res.recommended_denoise_engine)
 
             try:
                 config = self._collect()

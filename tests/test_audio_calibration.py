@@ -163,6 +163,101 @@ class AudioCalibrationTests(unittest.TestCase):
             self.assertIsInstance(res, AudioCalibrationResult)
             self.assertGreater(len(progress_calls), 0)
 
+    def test_silero_receives_normalized_audio_not_raw_int16(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_dir = Path(tmpdir)
+            (app_dir / "models").mkdir(parents=True, exist_ok=True)
+
+            mock_frames = queue.Queue()
+            loud_frame = np.full(512, 30000, dtype=np.int16)
+            mock_frames.put(loud_frame)
+
+            mock_capture = MagicMock()
+            mock_capture._frames = mock_frames
+
+            received_args = []
+
+            def fake_model(x):
+                received_args.append(x)
+                return 0.5
+
+            mock_silero = MagicMock(side_effect=fake_model)
+
+            run_audio_calibration(
+                app_dir=app_dir,
+                device_key=None,
+                duration_sec=0.05,
+                capture_factory=lambda **_: mock_capture,
+                silero_factory=lambda _: mock_silero,
+            )
+
+            self.assertGreater(len(received_args), 0)
+            for arr in received_args:
+                self.assertLessEqual(float(np.max(np.abs(arr))), 1.5)
+            self.assertEqual(mock_silero.call_count, 1)
+
+    def test_evaluate_calibration_recommends_hybrid_denoiser_when_noisy(self):
+        peaks = [0.05, 0.08, 0.04, 0.03] * 20
+        rms_list = [p * 0.7 for p in peaks]
+        vad_probs = [0.55, 0.52, 0.48, 0.53] * 20
+
+        # When current is clarity -> recommend hybrid
+        res1 = evaluate_calibration(
+            peaks=peaks,
+            rms_list=rms_list,
+            vad_probs=vad_probs,
+            current_gain_db=0.0,
+            current_vad_threshold=0.5,
+            current_normalize=True,
+            current_denoise_engine="clarity",
+            lang="id",
+        )
+        self.assertEqual(res1.vad_status, "noisy")
+        self.assertEqual(res1.recommended_denoise_engine, "hybrid")
+
+        # When current is already hybrid -> do not recommend hybrid
+        res2 = evaluate_calibration(
+            peaks=peaks,
+            rms_list=rms_list,
+            vad_probs=vad_probs,
+            current_gain_db=0.0,
+            current_vad_threshold=0.5,
+            current_normalize=True,
+            current_denoise_engine="hybrid",
+            lang="id",
+        )
+        self.assertEqual(res2.vad_status, "noisy")
+        self.assertIsNone(res2.recommended_denoise_engine)
+
+    def test_evaluate_calibration_fragmented_speech_hint(self):
+        peaks = [0.60] * 60 + [0.05] * 40
+        rms_list = [p * 0.7 for p in peaks]
+        vad_probs = [0.90] * 60 + [0.05] * 40
+
+        # With utterances_count >= 2 -> should add hint
+        res_hint = evaluate_calibration(
+            peaks=peaks,
+            rms_list=rms_list,
+            vad_probs=vad_probs,
+            current_gain_db=0.0,
+            current_vad_threshold=0.5,
+            utterances_count=3,
+            lang="id",
+        )
+        self.assertTrue(any("Silence Gap" in r for r in (res_hint.recommendations or [])))
+
+        # With utterances_count <= 1 -> should NOT add hint
+        res_no_hint = evaluate_calibration(
+            peaks=peaks,
+            rms_list=rms_list,
+            vad_probs=vad_probs,
+            current_gain_db=0.0,
+            current_vad_threshold=0.5,
+            utterances_count=1,
+            lang="id",
+        )
+        self.assertFalse(any("Silence Gap" in r for r in (res_no_hint.recommendations or [])))
+
 
 if __name__ == "__main__":
     unittest.main()

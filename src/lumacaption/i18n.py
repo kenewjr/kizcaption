@@ -1226,8 +1226,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "⚡ Apply Recommendations",
     },
     "cal_applied_msg": {
-        "id": "Pengaturan Gain Mic dan Ambang VAD berhasil disesuaikan!",
-        "en": "Mic Gain and VAD Threshold settings applied successfully!",
+        "id": "Pengaturan yang direkomendasikan berhasil diterapkan!",
+        "en": "Recommended settings applied successfully!",
     },
     "cal_no_rec_msg": {
         "id": "Pengaturan audio dan VAD Anda saat ini sudah optimal!",

@@ -31,6 +31,7 @@ PHRASE_SLANG_RULES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\bsantuy\s+aja|woles\s+aja\b", re.IGNORECASE), "santai saja"),
     (re.compile(r"\bmabar\s+game\s+bareng\b", re.IGNORECASE), "bermain game bersama"),
     (re.compile(r"\bmabar\s+bareng\b", re.IGNORECASE), "bermain bersama"),
+    (re.compile(r"\bmabar\s+sama\b", re.IGNORECASE), "bermain bersama"),
     (re.compile(r"\bmabar\b", re.IGNORECASE), "bermain bersama"),
     (re.compile(r"\b(?:makasih\s+banyak|terima\s+kasih\s+banyak)\b", re.IGNORECASE), "terima kasih banyak"),
     (re.compile(r"\b(?:makasih|terima\s+kasih)\s+ya\b", re.IGNORECASE), "terima kasih"),

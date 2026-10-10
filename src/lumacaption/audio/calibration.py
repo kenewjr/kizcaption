@@ -28,6 +28,7 @@ class AudioCalibrationResult:
     recommended_gain_db: float | None = None
     recommended_vad_threshold: float | None = None
     recommended_auto_normalize: bool | None = None
+    recommended_denoise_engine: str | None = None
     summary_text: str = ""
     recommendations: list[str] | None = None
 
@@ -41,6 +42,7 @@ def evaluate_calibration(
     current_normalize: bool = True,
     utterances_count: int = 0,
     lang: str = "id",
+    current_denoise_engine: str = "clarity",
 ) -> AudioCalibrationResult:
     """Analyze calibration metrics and generate actionable tuning recommendations."""
     is_en = (lang == "en")
@@ -66,6 +68,7 @@ def evaluate_calibration(
     # 1. Volume evaluation
     rec_gain: float | None = None
     rec_norm: bool | None = None
+    rec_denoise: str | None = None
     recs: list[str] = []
 
     if max_peak < 0.20:
@@ -103,6 +106,8 @@ def evaluate_calibration(
     elif max_noise_prob >= (current_vad_threshold - 0.05) and max_noise_prob > 0.40:
         vad_status = "noisy"
         rec_vad = min(0.85, round(max_noise_prob + 0.15, 2))
+        if current_denoise_engine != "hybrid":
+            rec_denoise = "hybrid"
         recs.append(
             f"Noise lantai/derau latar cukup tinggi ({max_noise_prob*100:.0f}%). Sarankan naikkan Ambang VAD ke {rec_vad:.2f} atau gunakan Noise Suppressor 'hybrid'."
             if not is_en else
@@ -110,6 +115,14 @@ def evaluate_calibration(
         )
     else:
         vad_status = "optimal"
+
+    # 3. Fragmented speech / silence gap indication
+    if utterances_count >= 2 and speech_ratio > 0.55:
+        recs.append(
+            f"Kalimat Anda kemungkinan terpotong {utterances_count}x selama tes — coba naikkan Silence Gap (ms) sedikit kalau ucapan Anda sering terjeda napas pendek. (Indikasi awal, uji beberapa kali untuk memastikan.)"
+            if not is_en else
+            f"Your speech was possibly split into {utterances_count} pieces during the test — try raising Silence Gap (ms) slightly if you often pause briefly to breathe. (Early indication only, retest to confirm.)"
+        )
 
     summary_parts = []
     if is_en:
@@ -139,6 +152,7 @@ def evaluate_calibration(
         recommended_gain_db=rec_gain,
         recommended_vad_threshold=rec_vad,
         recommended_auto_normalize=rec_norm,
+        recommended_denoise_engine=rec_denoise,
         summary_text=summary_text,
         recommendations=recs,
     )
@@ -222,15 +236,15 @@ def run_audio_calibration(
             peaks.append(peak)
             rms_list.append(rms)
 
-            prob = float(silero(frame))
-            vad_probs.append(prob)
-
             try:
                 utt = vad.process(frame)
                 if utt is not None:
                     utterances_count += 1
             except Exception:
                 pass
+
+            prob = float(getattr(vad, "last_probability", 0.0))
+            vad_probs.append(prob)
 
             elapsed = time.monotonic() - start_time
             remaining = max(0.0, duration_sec - elapsed)
@@ -253,4 +267,5 @@ def run_audio_calibration(
         current_normalize=normalize_audio,
         utterances_count=utterances_count,
         lang=lang,
+        current_denoise_engine=denoise_engine,
     )
