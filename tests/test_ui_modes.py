@@ -42,7 +42,7 @@ class UiModesAndPresetsTest(unittest.TestCase):
                 patch.object(MicrophoneCapture, "devices", return_value=[self.device]), \
                 patch.object(ControlPanel, "_sync_overlay", return_value=True):
             store = ConfigStore(Path(directory) / "config.json")
-            panel = ControlPanel(self.root, store, AppConfig(), _root)
+            panel = ControlPanel(self.root, store, AppConfig(ui_language="id"), _root)
             self.root.update()
 
             # 1. Default Mode is EZ mode
@@ -128,7 +128,7 @@ class UiModesAndPresetsTest(unittest.TestCase):
                 patch.object(MicrophoneCapture, "devices", return_value=[self.device]), \
                 patch.object(ControlPanel, "_sync_overlay", return_value=True):
             store = ConfigStore(Path(directory) / "config.json")
-            panel = ControlPanel(self.root, store, AppConfig(), _root)
+            panel = ControlPanel(self.root, store, AppConfig(ui_language="id"), _root)
             self.root.update()
 
             # 1. Tab 2: Mesin & VAD has canvas and scrollbar

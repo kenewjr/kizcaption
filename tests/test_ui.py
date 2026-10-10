@@ -33,7 +33,7 @@ class DashboardTests(unittest.TestCase):
                 patch.object(MicrophoneCapture, "devices", return_value=[device]), \
                 patch.object(ControlPanel, "_sync_overlay", return_value=True):
             store = ConfigStore(Path(directory) / "config.json")
-            panel = ControlPanel(root, store, AppConfig(), Path(__file__).parents[1])
+            panel = ControlPanel(root, store, AppConfig(ui_language="id"), Path(__file__).parents[1])
             sizes = ((1180, 820), (620, 560), (960, 700), (1440, 900), (620, 560))
             for (width, height), live in [(size, live) for live in (False, True) for size in sizes]:
                 panel._set_live_controls(live)

@@ -399,8 +399,8 @@ class ControlPanel:
         return t(key, lang=lang, **kwargs)
 
     def toggle_ui_language(self) -> None:
-        curr = getattr(self.config, "ui_language", "id")
-        nxt = "en" if curr == "id" else "id"
+        curr = getattr(self.config, "ui_language", "en")
+        nxt = "id" if curr == "en" else "en"
         self.set_ui_language(nxt)
 
     def set_ui_language(self, lang: str) -> None:
@@ -604,7 +604,7 @@ class ControlPanel:
         self.audio_clarity_var = tk.BooleanVar(value=getattr(self.config, "audio_clarity", True))
         self.slang_normalization_var = tk.BooleanVar(value=getattr(self.config, "slang_normalization", True))
         self.profanity_filter_var = tk.BooleanVar(value=getattr(self.config, "profanity_filter", False))
-        self.translation_review_var = tk.BooleanVar(value=getattr(self.config, "translation_review_log", False))
+        self.translation_review_var = tk.BooleanVar(value=getattr(self.config, "translation_review_log", True))
         self.denoise_engine_var = tk.StringVar(value=getattr(self.config, "denoise_engine", "clarity"))
         self.target_vars = [tk.StringVar() for _ in range(3)]
         self.overlay_port_var = tk.StringVar()
@@ -1410,7 +1410,7 @@ class ControlPanel:
         ttk.Button(btn_row, text=self.t("btn_check_updates"), command=self.check_for_updates_ui).pack(side="left", padx=4)
 
         if not hasattr(self, "translation_review_var"):
-            self.translation_review_var = tk.BooleanVar(value=getattr(self.config, "translation_review_log", False))
+            self.translation_review_var = tk.BooleanVar(value=getattr(self.config, "translation_review_log", True))
         ttk.Checkbutton(
             parent,
             text=self.t("chk_translation_review_log"),
@@ -2009,7 +2009,7 @@ class ControlPanel:
             self.slang_normalization_var.set(getattr(config, "slang_normalization", True))
             self.profanity_filter_var.set(getattr(config, "profanity_filter", False))
             if hasattr(self, "translation_review_var"):
-                self.translation_review_var.set(getattr(config, "translation_review_log", False))
+                self.translation_review_var.set(getattr(config, "translation_review_log", True))
             self.denoise_engine_var.set(getattr(config, "denoise_engine", "clarity"))
             self.overlay_port_var.set(str(config.overlay.port))
             self.theme_var.set(config.overlay.theme)
@@ -2872,8 +2872,8 @@ class ControlPanel:
             vocabulary_packages=self.config.vocabulary_packages,
             regional_assistance=self.config.regional_assistance,
             ui_theme=self._theme_name,
-            ui_language=getattr(self.config, "ui_language", "id"),
-            translation_review_log=bool(self.translation_review_var.get()) if hasattr(self, "translation_review_var") else getattr(self.config, "translation_review_log", False),
+            ui_language=getattr(self.config, "ui_language", "en"),
+            translation_review_log=bool(self.translation_review_var.get()) if hasattr(self, "translation_review_var") else getattr(self.config, "translation_review_log", True),
         )
 
     def save(self, *, announce: bool = True) -> AppConfig | None:

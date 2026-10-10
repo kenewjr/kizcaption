@@ -150,9 +150,9 @@ class AppConfig:
     slang_normalization: bool = True
     denoise_engine: str = "clarity"
     ui_mode: str = "ez"
-    ui_language: str = "id"
+    ui_language: str = "en"
     profanity_filter: bool = False
-    translation_review_log: bool = False
+    translation_review_log: bool = True
 
     def __post_init__(self) -> None:
         # Preserve explicit slot IDs; optional output 2 must not renumber output 3.
@@ -273,6 +273,8 @@ class AppConfig:
             raise ValueError("denoise_engine harus 'off', 'clarity', 'dtln', atau 'hybrid'")
         if type(self.profanity_filter) is not bool:
             raise ValueError("profanity_filter harus boolean")
+        if type(self.translation_review_log) is not bool:
+            raise ValueError("translation_review_log harus boolean")
         if not isinstance(self.vocabulary_packages, list) or any(p not in ("names", "brands", "id", "jw", "su", "betawi", "minang", "learned") for p in self.vocabulary_packages):
             raise ValueError("Paket kamus tidak valid")
 

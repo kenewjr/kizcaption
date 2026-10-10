@@ -18,9 +18,9 @@ from lumacaption.stt.whisper_engine import Transcript
 
 
 class PipelineLogReviewTests(unittest.TestCase):
-    def test_default_config_is_off(self):
+    def test_default_config_is_on(self):
         config = AppConfig()
-        self.assertFalse(config.translation_review_log)
+        self.assertTrue(config.translation_review_log)
 
     def test_append_review_log_creates_valid_jsonl(self):
         with tempfile.TemporaryDirectory() as tmpdir:

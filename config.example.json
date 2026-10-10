@@ -169,5 +169,7 @@
   "slang_normalization": true,
   "denoise_engine": "clarity",
   "ui_mode": "ez",
-  "ui_language": "id"
+  "ui_language": "en",
+  "profanity_filter": false,
+  "translation_review_log": true
 }

@@ -443,7 +443,7 @@ class CaptionPipeline:
 
                         translations_summary = " | ".join(f"{lang}={text}" for lang, text in translations.items())
                         self._emit("translations", translations_summary, translations)
-                        if getattr(self.config, "translation_review_log", False):
+                        if getattr(self.config, "translation_review_log", True):
                             self._append_review_log(transcript.language, source_code, display_text, translations, stt_ms, mt_ms)
 
                         loop = self._loop

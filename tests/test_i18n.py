@@ -30,7 +30,7 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
         self.device = InputDevice("device:test", "Test Mic", 0, 48_000, "WASAPI")
 
     def test_i18n_translation_keys_and_fallbacks(self):
-        self.assertEqual(DEFAULT_LANGUAGE, "id")
+        self.assertEqual(DEFAULT_LANGUAGE, "en")
         self.assertIn("id", SUPPORTED_LANGUAGES)
         self.assertIn("en", SUPPORTED_LANGUAGES)
 
@@ -74,12 +74,12 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
 
     def test_app_config_ui_language_validation_and_roundtrip(self):
         cfg = AppConfig()
-        self.assertEqual(cfg.ui_language, "id")
+        self.assertEqual(cfg.ui_language, "en")
         cfg.validate()
 
-        cfg_en = AppConfig(ui_language="en")
-        self.assertEqual(cfg_en.ui_language, "en")
-        cfg_en.validate()
+        cfg_id = AppConfig(ui_language="id")
+        self.assertEqual(cfg_id.ui_language, "id")
+        cfg_id.validate()
 
         with self.assertRaises(ValueError):
             AppConfig(ui_language="invalid").validate()
@@ -87,9 +87,12 @@ class I18nAndLanguageSwitchTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             p = Path(td) / "config.json"
             store = ConfigStore(p)
-            store.save(cfg_en)
+            store.save(cfg)
             loaded, _ = store.load()
             self.assertEqual(loaded.ui_language, "en")
+            store.save(cfg_id)
+            loaded_id, _ = store.load()
+            self.assertEqual(loaded_id.ui_language, "id")
 
     def test_ui_language_toggle_and_persistence(self):
         with tempfile.TemporaryDirectory() as directory, \

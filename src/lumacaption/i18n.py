@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-DEFAULT_LANGUAGE = "id"
+DEFAULT_LANGUAGE = "en"
 SUPPORTED_LANGUAGES = ("id", "en")
 
 # Kamus terjemahan:
@@ -1243,7 +1243,7 @@ def t(key: str, lang: str | None = None, **kwargs: Any) -> str:
     entry = STRINGS.get(key)
     if not entry:
         return key
-    text = entry.get(target_lang) or entry.get(DEFAULT_LANGUAGE) or key
+    text = entry.get(target_lang) or entry.get(DEFAULT_LANGUAGE) or entry.get("id") or key
     if kwargs:
         try:
             return text.format(**kwargs)
