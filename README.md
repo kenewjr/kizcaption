@@ -25,15 +25,19 @@ Microphone (WASAPI) → 16 kHz Mono → Silero VAD v5 → Faster-Whisper → Met
 
 ### 1. Clean 6-Tab Interface (Zero Redundancy)
 A sleek, categorized Tkinter desktop dashboard:
+- **Bilingual Interface**: English by default, with 1-click header switcher to Bahasa Indonesia (`🌐 English` / `🌐 Bahasa Indonesia`).
 - **Tab 1 — Monitor & Quick Setup**:
   - Live audio VU meters (RMS dBFS, Peak dBFS, active VAD indicator).
   - Microphone selector, quick language targets, and software Volume Gain (dB) slider.
+  - **Interactive Audio & VAD Calibration Benchmark**: 5-second acoustic test that measures background noise floor & speech acoustics to auto-tune VAD threshold, mic gain, silence hangover ms, and denoiser engine with 1-click apply.
+  - **EZ Mode & Resource Templates**: 1-click hardware presets (`Potato / Ultra Low`, `Low Spec / Saver`, `Balanced`, `High Accuracy`, `Ultra Studio`) plus 1-click Hardware Benchmark.
   - Live transcription stream and 3 real-time translation slot monitors.
 - **Tab 2 — Engine & VAD**:
   - Speech-to-Text (STT) model selector (`tiny` up to `large-v3-turbo`), device selection (`auto`, `cuda`, `cpu`), and beam size.
   - Machine Translation (MT) NLLB-200 model, compute type, beam size, and CPU thread limits.
   - Silero VAD fine-tuning (speech probability threshold, silence hangover ms, max utterance duration).
-  - Automated profanity censorship filter (TOS-Safe) and gamer/streamer slang normalizer.
+  - **Multi-Engine Noise Suppression**: Vocal Clarity DSP, DTLN neural network noise filter (ONNX), and Hybrid Mode.
+  - Automated profanity censorship filter (TOS-Safe), gamer/streamer slang normalizer, and 1,000+ expanded Indonesian vocabulary bank with adaptive self-learning.
 - **Tab 3 — Caption Style (3 Profiles & Live In-App Preview)**:
   - 1-Click Platform Safe-Zone Presets (YouTube 1080p, Twitch, TikTok Live 9:16 portrait).
   - Independent customization for Slot 1, Slot 2, and Slot 3.
@@ -42,13 +46,16 @@ A sleek, categorized Tkinter desktop dashboard:
 - **Tab 4 — Models & Resources**:
   - Automated hardware inspection (detected GPU, free VRAM, total RAM, CPU thread count).
   - VRAM/RAM safety checks and disk size requirements for each model.
-  - Background model download manager with animated progress, download speed, and ETA indicators.
+  - Background model download manager with animated progress, speedometer, and ETA indicators.
   - **Zero Re-download Reinstall Detection**: Central persistent cache (`%LOCALAPPDATA%/KizCaption/models`), Hugging Face cache detection, and 1-Click "Scan Previous Models" button to detect and link existing models automatically across updates or reinstalls.
 - **Tab 5 — OBS Setup**:
   - Ready-to-copy Browser Source URLs for Slot 1, Slot 2, Slot 3, and All-in-One Multi-Language modes.
   - One-click "Copy URL" and "Open in Browser" buttons with real-time client connection diagnostics.
-- **Tab 6 — About**:
+- **Tab 6 — About & Diagnostics**:
   - Version info, one-click GitHub Update Checker, KZP branding, license attributions, and `by kenewjr 2026` credit.
+  - **Structured Translation Review Log**: Built-in, default-active structured logging of spoken input transcripts, multi-target translation outputs, and STT/MT latencies into `logs/translation_review.jsonl`.
+  - **1-Click Export & Clear Review Log**: `📤 Export Translation Log` and `🗑 Clear Translation Log` buttons for easy sharing and quality evaluation.
+  - **Copy Recent System Logs**: 1-click clipboard copy of latest session logs (`kizcaption-*.log`) for debugging.
 
 ### 2. Modern Custom Scrollbars & Dark/Light Theme
 - Slim, elegant 8px custom scrollbars with rounded thumbs and no antiquated arrow buttons.
@@ -131,21 +138,23 @@ Follow this quick walkthrough after launching KizCaption for the first time:
    - **NLLB-200 MT**: Click **Download** to retrieve the distilled 600M translation model (~600 MB).
 4. Watch the progress bar, download speed (e.g. `⚡ 12.4 MB/s`), and ETA indicator. Once status reads **Ready / Local**, proceed to the next step.
 
-### Step 2: Select Microphone & Adjust Audio Levels (Tab 1 — Monitor)
+### Step 2: Select Microphone & Calibrate Audio (Tab 1 — Monitor)
 1. Switch to **Tab 1 (Monitor & Quick Setup)**.
 2. In the **Audio Input** dropdown, select your active microphone (e.g., `Microphone (Realtek Audio)` or virtual audio device).
-3. Speak into your microphone and observe the **RMS and Peak dBFS meters**:
-   - The VU meter will light up in real time.
-   - Adjust the **Volume Gain (dB)** slider if your microphone signal is too quiet or clipping. Aim for normal speech to peak in the `-18 dBFS` to `-6 dBFS` range.
+3. Click the **Calibrate Audio & VAD (Kalibrasi Audio & VAD)** button:
+   - Stay silent for 2.5 seconds to measure room noise floor.
+   - Speak naturally for 2.5 seconds to gauge voice dynamics.
+   - Review the auto-calculated VAD threshold, Gain, and Denoiser recommendations, then click **Apply Recommendations**.
+4. Speak into your microphone and observe the **RMS and Peak dBFS meters** lighting up in real time (normal speech should peak in `-18 dBFS` to `-6 dBFS`).
 
 ### Step 3: Choose Languages & Translation Targets (Tab 1 & Tab 2)
 1. In **Tab 1**, set your **Spoken Language** (e.g., `Indonesian` or `English`).
 2. Configure your **Translation Target Slots**:
-   - **Slot 1**: Primary translation (e.g., `English`).
-   - **Slot 2**: Secondary translation (e.g., `Japanese`).
-   - **Slot 3**: Tertiary translation (e.g., `Javanese`, `Sundanese`, or keep disabled).
-   - Toggle the checkbox next to each slot to enable or disable it.
+   - **Target 1**: Primary translation (e.g., `English`).
+   - **Target 2**: Secondary translation (e.g., `Japanese`, or choose `Not used`).
+   - **Target 3**: Tertiary translation (e.g., `Javanese`, `Sundanese`, or `Not used`).
 3. *(Optional)* Switch to **Tab 2 (Engine & VAD)** to toggle:
+   - **Noise Suppression**: Choose between `Vocal Clarity (DSP)`, `DTLN (Neural)`, or `Hybrid (Both)` for noisier rooms.
    - **Profanity Filter (TOS-Safe)**: Automatically masks inappropriate language with asterisks (`***`).
    - **Slang Normalization**: Automatically converts informal stream jargon into clean standard vocabulary.
 
@@ -161,7 +170,7 @@ Follow this quick walkthrough after launching KizCaption for the first time:
 2. Switch to **Tab 5 (OBS Setup)** in KizCaption.
 3. Click **Copy URL** next to your preferred layout:
    - **All-in-One Multi-Language**: `http://127.0.0.1:8765/overlay.html` (Displays all active translation slots stacked).
-   - **Individual Slots**: `http://127.0.0.1:8765/overlay?profile=1` (Custom standalone placement for Slot 1).
+   - **Individual Slots**: `http://127.0.0.1:8765/overlay.html?profile=1` (Custom standalone placement for Slot 1).
 4. In OBS Studio under **Sources**, click `+` → **Browser**.
 5. Give the source a name (e.g., `KizCaption Subtitles`) and click **OK**.
 6. In the Browser Source properties:
@@ -173,10 +182,15 @@ Follow this quick walkthrough after launching KizCaption for the first time:
 
 ### Step 6: Start Live Subtitling & Stream! (Tab 1 — Monitor)
 1. Return to **Tab 1 (Monitor & Quick Setup)** in KizCaption.
-2. Click the big green button: **Start Subtitles (Mulai Caption)**.
+2. Click the big green button: **START CAPTION (Mulai Caption)**.
 3. Speak into your microphone.
 4. Watch your words transcribe and translate instantly in the app monitor, while simultaneously rendering smoothly in your OBS Studio broadcast screen!
-5. To stop, simply click **Stop Subtitles**. Your OBS connection stays alive without breaking.
+5. To stop, simply click **STOP CAPTION**. Your OBS connection stays alive without breaking.
+
+### Step 7: Quality Review & Export (Tab 6 — About & Diagnostics)
+- By default, KizCaption records input speech transcripts and multi-target translations into a structured local log (`logs/translation_review.jsonl`) with STT/MT latency metrics.
+- Open **Tab 6 (About)** and click **📤 Export Translation Log** to export the `.jsonl` file anytime to evaluate translation quality or train custom vocabulary.
+- Click **🗑 Clear Translation Log** to wipe review data when finished.
 
 ---
 
